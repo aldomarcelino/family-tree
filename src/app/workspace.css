@@ -117,7 +117,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 /* Modal & Dialog Responsive Styles */
 .family-modal {
   width: 100%;
-  max-width: min(calc(100vw - 32px), var(--modal-max-width, 42rem));
+  max-width: min(calc(100vw - 32px), var(--modal-max-width, 49rem));
   box-sizing: border-box;
   background: #ffffff;
   border-color: #e4e4e7;

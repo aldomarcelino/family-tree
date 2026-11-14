@@ -10,9 +10,9 @@ const MAX_WIDTH_MAP: Record<string, string> = {
   "max-w-sm": "24rem",
   "max-w-md": "28rem",
   "max-w-lg": "32rem",
-  "max-w-xl": "36rem",
-  "max-w-2xl": "42rem",
-  "max-w-3xl": "48rem",
+  "max-w-xl": "38rem",
+  "max-w-2xl": "44rem",
+  "max-w-3xl": "49rem",
   "max-w-4xl": "56rem",
 };
 
