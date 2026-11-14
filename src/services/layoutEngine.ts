@@ -1,4 +1,4 @@
-import { getKinshipLabels } from "@/src/services/kinship";
+import { getKinshipLabels, type TuturMode } from "@/src/services/kinship";
 import { getFamilyLineGroups, FAMILY_LINE_COLOR } from "@/src/services/familyLineColors";
 import { packFamilyCouples } from "@/src/services/packFamilyCouples";
 import type { Edge, Node } from "reactflow";
@@ -25,9 +25,10 @@ export const getRelativeRelationLabel = (
   personId: string,
   focusPersonId: string | null,
   family: FamilyData,
+  tuturMode: TuturMode = "indonesia",
 ): string | undefined => {
   if (!focusPersonId || personId === focusPersonId) return undefined;
-  return getKinshipLabels(focusPersonId, family).get(personId);
+  return getKinshipLabels(focusPersonId, family, tuturMode).get(personId);
 };
 
 const getAncestorSubtreeWidth = (
@@ -80,6 +81,7 @@ const layoutAncestorsRecursive = (
   onSelect?: (person: Person) => void,
   onFocus?: (id: string) => void,
   dirHandle?: FolderDirectoryHandle,
+  tuturMode: TuturMode = "indonesia",
 ) => {
   if (visited.has(personId)) return;
   visited.add(personId);
@@ -87,7 +89,7 @@ const layoutAncestorsRecursive = (
   const person = family.persons.find((p) => p.id === personId);
   if (!person) return;
 
-  const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family);
+  const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family, tuturMode);
 
   nodes.push({
     id: person.id,
@@ -127,6 +129,7 @@ const layoutAncestorsRecursive = (
       onSelect,
       onFocus,
       dirHandle,
+      tuturMode,
     );
     edges.push({
       id: `edge-${father.id}-${person.id}`,
@@ -156,6 +159,7 @@ const layoutAncestorsRecursive = (
       onSelect,
       onFocus,
       dirHandle,
+      tuturMode,
     );
     edges.push({
       id: `edge-${mother.id}-${person.id}`,
@@ -194,6 +198,7 @@ const layoutDescendantsRecursive = (
   onSelect?: (person: Person) => void,
   onFocus?: (id: string) => void,
   dirHandle?: FolderDirectoryHandle,
+  tuturMode: TuturMode = "indonesia",
 ) => {
   if (visited.has(personId)) return;
   visited.add(personId);
@@ -201,7 +206,7 @@ const layoutDescendantsRecursive = (
   const person = family.persons.find((p) => p.id === personId);
   if (!person) return;
 
-  const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family);
+  const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family, tuturMode);
 
   nodes.push({
     id: person.id,
@@ -245,6 +250,7 @@ const layoutDescendantsRecursive = (
       onSelect,
       onFocus,
       dirHandle,
+      tuturMode,
     );
 
     edges.push({
@@ -668,6 +674,7 @@ const buildFullTreeNodes = (
   onSelect?: (person: Person) => void,
   onFocus?: (id: string) => void,
   dirHandle?: FolderDirectoryHandle,
+  tuturMode: TuturMode = "indonesia",
 ): Node[] => {
   const components = findConnectedComponents(family);
   if (components.length === 0) return [];
@@ -698,7 +705,7 @@ const buildFullTreeNodes = (
       const person = personById.get(pid);
       if (!person) continue;
 
-      const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family);
+      const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family, tuturMode);
 
       nodes.push({
         id: person.id,
@@ -801,6 +808,7 @@ export const getTreeLayout = (
   layoutMode: "auto" | "manual" = "auto",
   onAddRelative?: (person: Person, defaultRole?: "parent" | "spouse" | "child" | "sibling") => void,
   onDeletePerson?: (id: string) => void,
+  tuturMode: TuturMode = "indonesia",
 ): { nodes: Node[]; edges: Edge[] } => {
   if (family.persons.length === 0) {
     return { nodes: [], edges: [] };
@@ -811,7 +819,7 @@ export const getTreeLayout = (
 
   if (mode === "full" || !rootId) {
     layoutResult = {
-      nodes: buildFullTreeNodes(family, focusPersonId, onEditPerson, onSelectPerson, onFocusPerson, dirHandle),
+      nodes: buildFullTreeNodes(family, focusPersonId, onEditPerson, onSelectPerson, onFocusPerson, dirHandle, tuturMode),
       edges: buildFullTreeEdges(family),
     };
   } else if (mode === "ancestor") {
@@ -832,6 +840,7 @@ export const getTreeLayout = (
       onSelectPerson,
       onFocusPerson,
       dirHandle,
+      tuturMode,
     );
     layoutResult = { nodes, edges };
   } else if (mode === "descendant") {
@@ -850,6 +859,7 @@ export const getTreeLayout = (
       onSelectPerson,
       onFocusPerson,
       dirHandle,
+      tuturMode,
     );
     layoutResult = { nodes, edges };
   } else if (mode === "branch") {
@@ -859,7 +869,7 @@ export const getTreeLayout = (
 
     const rootPerson = family.persons.find((p) => p.id === rootId);
     if (rootPerson) {
-      const relationLabel = getRelativeRelationLabel(rootPerson.id, focusPersonId, family);
+      const relationLabel = getRelativeRelationLabel(rootPerson.id, focusPersonId, family, tuturMode);
       nodes.push({
         id: rootPerson.id,
         type: "person",
@@ -897,6 +907,7 @@ export const getTreeLayout = (
         onSelectPerson,
         onFocusPerson,
         dirHandle,
+        tuturMode,
       );
       edges.push({
         id: `edge-${father.id}-${rootId}`,
@@ -925,6 +936,7 @@ export const getTreeLayout = (
         onSelectPerson,
         onFocusPerson,
         dirHandle,
+        tuturMode,
       );
       edges.push({
         id: `edge-${mother.id}-${rootId}`,

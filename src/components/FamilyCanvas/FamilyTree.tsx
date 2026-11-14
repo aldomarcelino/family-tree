@@ -18,6 +18,7 @@ import { FamilyJunction } from "@/src/components/FamilyCanvas/FamilyJunction";
 import { FamilyRelationshipEdge } from "@/src/components/FamilyCanvas/FamilyRelationshipEdge";
 import { MarriageEdge } from "@/src/components/FamilyCanvas/MarriageEdge";
 import { RelationGuide } from "@/src/components/UI/RelationGuide";
+import { TuturModeSelector } from "@/src/components/UI/TuturModeSelector";
 import { CanvasToolbar } from "@/src/components/UI/CanvasToolbar";
 import { FamilySearchBar } from "@/src/components/UI/FamilySearchBar";
 import { Camera, Loader2 } from "lucide-react";
@@ -95,6 +96,7 @@ function FamilyTreeInner({
   const [showMinimap, setShowMinimap] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
   const updatePersonLayout = useFamilyStore((state) => state.updatePersonLayout);
+  const tuturMode = useFamilyStore((state) => state.tuturMode);
 
   const { nodes: layoutNodes, edges } = useMemo(() => getTreeLayout(
     family,
@@ -109,8 +111,9 @@ function FamilyTreeInner({
     layoutMode,
     onAddRelative,
     onDeletePerson,
+    tuturMode,
   ), [family, viewMode, focusPersonId, onEditPerson, onSelectPerson, onFocusPerson, dirHandle,
-    collapsedPersonIds, onToggleCollapse, layoutMode, onAddRelative, onDeletePerson]);
+    collapsedPersonIds, onToggleCollapse, layoutMode, onAddRelative, onDeletePerson, tuturMode]);
   const waveSchedule = useMemo(() => getFocusWaveSchedule(layoutNodes, edges, focusPersonId), [layoutNodes, edges, focusPersonId]);
   const waveKey = focusRequest > 0 && focusPersonId ? `${focusPersonId}:${focusRequest}` : undefined;
   const nodes = useMemo(() => layoutNodes.map((node) => node.type === "person" ?
@@ -284,9 +287,10 @@ function FamilyTreeInner({
         onAddRelationship={onAddRelationship || (() => {})}
       />
 
-      {/* Bottom-left tools: Relation Guide & Export Board View as Image */}
+      {/* Bottom-left tools: Relation Guide, Tutur Mode Selector & Export Board View as Image */}
       <div className="relation-guide-group nodrag nopan nowheel">
         <RelationGuide />
+        <TuturModeSelector />
         <button
           type="button"
           onClick={handleExportImage}

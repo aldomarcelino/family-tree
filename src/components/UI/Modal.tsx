@@ -43,11 +43,44 @@ export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "
   if (!isOpen) return null;
 
   return (
-    <dialog ref={dialog} role={role} aria-labelledby={titleId} aria-describedby={subtitle ? descriptionId : undefined} onCancel={(event) => { event.preventDefault(); closeRef.current(); }} onClick={(event) => { if (event.target === event.currentTarget) { const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) onClose(); } }} className={`family-modal m-auto w-[calc(100%-32px)] ${maxWidth} max-h-[calc(100dvh-48px)] overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30`}>
-      <div className="flex max-h-[calc(100dvh-48px)] flex-col">
+    <dialog
+      ref={dialog}
+      role={role}
+      aria-labelledby={titleId}
+      aria-describedby={subtitle ? descriptionId : undefined}
+      onCancel={(event) => {
+        event.preventDefault();
+        closeRef.current();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          if (
+            event.clientX < bounds.left ||
+            event.clientX > bounds.right ||
+            event.clientY < bounds.top ||
+            event.clientY > bounds.bottom
+          )
+            onClose();
+        }
+      }}
+      className={`family-modal m-auto w-full max-w-[calc(100vw-32px)] sm:${maxWidth} max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30`}
+    >
+      <div className="flex max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] flex-col">
         <header className="modal-heading">
-          <div><p className="modal-eyebrow">{eyebrow}</p><h2 id={titleId} className="modal-title">{title}</h2>{subtitle && <p id={descriptionId} className="modal-description">{subtitle}</p>}</div>
-          <button type="button" aria-label="Tutup modal" onClick={onClose} className="dock-button -mr-1 -mt-1"><X size={18} /></button>
+          <div>
+            <p className="modal-eyebrow">{eyebrow}</p>
+            <h2 id={titleId} className="modal-title">{title}</h2>
+            {subtitle && <p id={descriptionId} className="modal-description">{subtitle}</p>}
+          </div>
+          <button
+            type="button"
+            aria-label="Tutup modal"
+            onClick={onClose}
+            className="dock-button -mr-1 -mt-1"
+          >
+            <X size={18} />
+          </button>
         </header>
         {children}
       </div>

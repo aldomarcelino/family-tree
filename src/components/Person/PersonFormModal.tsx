@@ -217,7 +217,39 @@ export function PersonFormModal({
           {error && <p role="alert" className="mt-5 rounded-lg bg-[#fbf4f5] border border-[#eed2d5] p-3 text-xs text-[#862d33]">{error}</p>}
         </div>
       </div>
-      <footer className="modal-footer"><div>{person ? <button type="button" className="modal-delete" onClick={() => onDelete(person.id)}><Trash2 size={14} /> Hapus anggota</button> : <span className="text-xs text-zinc-400">Tersimpan hanya di perangkat Anda.</span>}</div><div className="flex gap-2"><Button onClick={onClose} variant="ghost">Batal</Button><Button onClick={handleSubmit} variant="primary">{person ? "Simpan perubahan" : "Tambah anggota"}</Button></div></footer>
+      <footer className="modal-footer">
+        <div>
+          {person ? (
+            <button
+              type="button"
+              className="modal-delete"
+              onClick={() => onDelete(person.id)}
+            >
+              <Trash2 size={14} /> Hapus anggota
+            </button>
+          ) : (
+            <span className="text-xs text-zinc-400">
+              Tersimpan hanya di perangkat Anda.
+            </span>
+          )}
+        </div>
+        <div className="flex w-full sm:w-auto gap-2">
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            className="flex-1 sm:flex-initial"
+          >
+            Batal
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="primary"
+            className="flex-1 sm:flex-initial"
+          >
+            {person ? "Simpan perubahan" : "Tambah anggota"}
+          </Button>
+        </div>
+      </footer>
     </Modal>
   );
 }

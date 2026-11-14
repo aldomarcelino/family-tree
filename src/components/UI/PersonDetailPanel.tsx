@@ -18,6 +18,7 @@ import {
   getSiblings,
 } from "@/src/services/familyGraph";
 import { comparePersonAges, siblingLabel } from "@/src/services/kinship";
+import { useFamilyStore } from "@/src/store/familyStore";
 import type { FamilyData, Person, FolderDirectoryHandle } from "@/src/types/family";
 
 interface PersonDetailPanelProps {
@@ -48,6 +49,7 @@ export function PersonDetailPanel({
   onAddChildOfCouple,
 }: PersonDetailPanelProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const tuturMode = useFamilyStore((state) => state.tuturMode);
 
   useEffect(() => {
     let active = true;
@@ -80,7 +82,7 @@ export function PersonDetailPanel({
       <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-7">
         <section><div className="detail-portrait">{photoUrl ? <img src={photoUrl} alt="" /> : getPersonInitials(person.fullName)}</div><h2 className="mt-5 font-serif text-2xl leading-tight text-[#27272a]">{person.fullName}</h2><p className="mt-2 text-xs text-zinc-400">{person.nickname ? `${person.nickname} · ` : ""}{lifeYears || "Tanggal belum dicatat"}</p></section>
         {(person.birthDate || person.birthPlace || person.deathDate || person.deathPlace) && <section className="detail-timeline">{[{ label: "Lahir", date: person.birthDate, place: person.birthPlace }, { label: "Wafat", date: person.deathDate, place: person.deathPlace }].filter((event) => event.date || event.place).map((event) => <div key={event.label}><span>{event.label}</span><p>{event.date || "Tanggal belum dicatat"}{event.place && <small>{event.place}</small>}</p></div>)}</section>}
-        {groups.map(({ title, people, role }) => <section key={role}><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-medium text-[#52525b]">{title} <span className="ml-1 font-normal text-zinc-400">{people.length}</span></h3>{onAddRelative && <button type="button" className="dock-button" aria-label={`Tambah ${title.toLowerCase()} untuk ${person.fullName}`} onClick={() => onAddRelative(person, role)}><Plus size={14} /></button>}</div>{people.length ? people.map((relative) => { const badge = role === "sibling" ? siblingLabel(relative.gender, comparePersonAges(person.birthDate, relative.birthDate)) : role === "spouse" ? (relative.gender === "female" ? "Istri" : "Suami") : null; return <div key={relative.id} className="detail-relative"><button type="button" onClick={() => onSelectPerson?.(relative)}><span className="flex items-center gap-1.5">{relative.fullName}{badge && <span className="text-[11px] font-normal text-zinc-400">· {badge}</span>}</span><ArrowUpRight size={12} /></button>{role === "spouse" && onAddChildOfCouple && <button type="button" className="detail-couple-child" onClick={() => onAddChildOfCouple(person, relative)}>Tambah anak bersama</button>}</div>; }) : <p className="text-[11px] text-zinc-400">Belum dicatat</p>}</section>)}
+        {groups.map(({ title, people, role }) => <section key={role}><div className="mb-2 flex items-center justify-between"><h3 className="text-xs font-medium text-[#52525b]">{title} <span className="ml-1 font-normal text-zinc-400">{people.length}</span></h3>{onAddRelative && <button type="button" className="dock-button" aria-label={`Tambah ${title.toLowerCase()} untuk ${person.fullName}`} onClick={() => onAddRelative(person, role)}><Plus size={14} /></button>}</div>{people.length ? people.map((relative) => { const badge = role === "sibling" ? siblingLabel(relative.gender, comparePersonAges(person.birthDate, relative.birthDate), tuturMode, person.gender) : role === "spouse" ? (tuturMode === "mandailing" ? (relative.gender === "female" ? "Istri" : "Suami") : tuturMode === "jawa" ? "Garwa" : (relative.gender === "female" ? "Istri" : "Suami")) : null; return <div key={relative.id} className="detail-relative"><button type="button" onClick={() => onSelectPerson?.(relative)}><span className="flex items-center gap-1.5">{relative.fullName}{badge && <span className="text-[11px] font-normal text-zinc-400">· {badge}</span>}</span><ArrowUpRight size={12} /></button>{role === "spouse" && onAddChildOfCouple && <button type="button" className="detail-couple-child" onClick={() => onAddChildOfCouple(person, relative)}>Tambah anak bersama</button>}</div>; }) : <p className="text-[11px] text-zinc-400">Belum dicatat</p>}</section>)}
         {person.notes && <section><h3 className="mb-3 text-xs font-medium text-[#52525b]">Catatan & cerita</h3><p className="whitespace-pre-line text-xs leading-6 text-zinc-500">{person.notes}</p></section>}
         {person.tags.length > 0 && <div className="flex flex-wrap gap-2">{person.tags.map((tag) => <span key={tag} className="rounded border border-zinc-200 px-2 py-1 text-[10px] text-zinc-400">{tag}</span>)}</div>}
       </div>

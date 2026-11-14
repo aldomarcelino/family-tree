@@ -90,17 +90,68 @@ export function CanvasToolbar({ layoutMode, onLayoutModeChange, onAutoArrange, s
         const element = ref.current;
         if (element) moveTo((position?.x ?? element.offsetLeft - element.offsetWidth / 2) + (e.key === 'ArrowLeft' ? -20 : e.key === 'ArrowRight' ? 20 : 0), (position?.y ?? element.offsetTop) + (e.key === 'ArrowUp' ? -20 : e.key === 'ArrowDown' ? 20 : 0));
       }}><GripVertical size={16} /></button>
-      {minimized ? <button className="px-2 text-xs font-medium" onClick={() => setMinimized(false)}>Kontrol kanvas <span className="ml-2 text-zinc-400">{zoom}%</span></button> : <>
-        <button className={iconClass} aria-label="Urungkan" title="Urungkan (Ctrl/Cmd+Z)" disabled={!canUndo} onClick={undo}><Undo2 size={16} /></button>
-        <button className={iconClass} aria-label="Ulangi" title="Ulangi (Ctrl/Cmd+Shift+Z)" disabled={!canRedo} onClick={redo}><Redo2 size={16} /></button>
-        <span className="dock-divider" />
-        <button className={iconClass} aria-label="Perkecil" title="Perkecil" onClick={() => zoomOut({ duration: 180 })}><Minus size={16} /></button>
-        <span className="w-10 text-center text-xs tabular-nums text-zinc-600">{zoom}%</span>
-        <button className={iconClass} aria-label="Perbesar" title="Perbesar" onClick={() => zoomIn({ duration: 180 })}><Plus size={16} /></button>
-        <button className={iconClass} aria-label="Tampilkan seluruh pohon" title="Tampilkan seluruh pohon" onClick={() => fitView({ padding: 0.2, duration: 250 })}><Maximize size={16} /></button>
-        <span className="dock-divider" />
-        <button className={iconClass} aria-label="Pengaturan kanvas" title="Pengaturan kanvas" aria-expanded={settingsOpen} onClick={() => setSettingsOpen(!settingsOpen)}><SlidersHorizontal size={16} /></button>
-      </>}
+      {minimized ? (
+        <button className="px-2 text-xs font-medium" onClick={() => setMinimized(false)}>
+          Kontrol kanvas <span className="ml-1 text-zinc-400">{zoom}%</span>
+        </button>
+      ) : (
+        <>
+          <button
+            className={`${iconClass} hidden md:inline-flex`}
+            aria-label="Urungkan"
+            title="Urungkan (Ctrl/Cmd+Z)"
+            disabled={!canUndo}
+            onClick={undo}
+          >
+            <Undo2 size={16} />
+          </button>
+          <button
+            className={`${iconClass} hidden md:inline-flex`}
+            aria-label="Ulangi"
+            title="Ulangi (Ctrl/Cmd+Shift+Z)"
+            disabled={!canRedo}
+            onClick={redo}
+          >
+            <Redo2 size={16} />
+          </button>
+          <span className="dock-divider hidden md:block" />
+          <button
+            className={iconClass}
+            aria-label="Perkecil"
+            title="Perkecil"
+            onClick={() => zoomOut({ duration: 180 })}
+          >
+            <Minus size={16} />
+          </button>
+          <span className="w-10 text-center text-xs tabular-nums text-zinc-600">{zoom}%</span>
+          <button
+            className={iconClass}
+            aria-label="Perbesar"
+            title="Perbesar"
+            onClick={() => zoomIn({ duration: 180 })}
+          >
+            <Plus size={16} />
+          </button>
+          <button
+            className={`${iconClass} hidden sm:inline-flex`}
+            aria-label="Tampilkan seluruh pohon"
+            title="Tampilkan seluruh pohon"
+            onClick={() => fitView({ padding: 0.2, duration: 250 })}
+          >
+            <Maximize size={16} />
+          </button>
+          <span className="dock-divider hidden sm:block" />
+          <button
+            className={iconClass}
+            aria-label="Pengaturan kanvas"
+            title="Pengaturan kanvas"
+            aria-expanded={settingsOpen}
+            onClick={() => setSettingsOpen(!settingsOpen)}
+          >
+            <SlidersHorizontal size={16} />
+          </button>
+        </>
+      )}
       <button className={iconClass} aria-label={minimized ? "Perluas panel kontrol" : "Minimalkan panel kontrol"} title={minimized ? "Perluas" : "Minimalkan"} onClick={() => { setMinimized(!minimized); setSettingsOpen(false); }}>{minimized ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>
     </div>
   );

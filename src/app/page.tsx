@@ -4,7 +4,8 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import markoumLogo from "@/public/assets/logos/logo.webp";
-import { PanelLeftOpen, Check, Circle, CheckCircle2, CircleAlert, Info, X } from "lucide-react";
+import { PanelLeftOpen, CheckCircle2, CircleAlert, Info, X } from "lucide-react";
+import { SaveIndicator } from "@/src/components/UI/SaveIndicator";
 import { EmptyFamilyState } from "@/src/components/FamilyCanvas/EmptyFamilyState";
 import { FamilyTree } from "@/src/components/FamilyCanvas/FamilyTree";
 import { PersonFormModal } from "@/src/components/Person/PersonFormModal";
@@ -73,7 +74,13 @@ export default function Home() {
   const [layoutMode, setLayoutMode] = useState<"auto" | "manual">("auto");
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [collapsedPersonIds, setCollapsedPersonIds] = useState<Set<string>>(new Set());
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setIsSidebarOpen(true);
+    }
+  }, []);
 
   // Modals & Panels
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -489,7 +496,16 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-zinc-50 text-zinc-900 font-sans antialiased">
+    <div className="flex h-[100dvh] w-full max-w-[100vw] overflow-hidden bg-zinc-50 text-zinc-900 font-sans antialiased">
+      {/* Mobile Backdrop for Sidebar */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-35 lg:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Refactored Sidebar Component with View Filter Tabs */}
       <AppSidebar
         isOpen={isSidebarOpen}
@@ -552,7 +568,7 @@ export default function Home() {
             )}
             <div className="min-w-0 flex-1 family-title-field"><p className="board-eyebrow">Arsip keluarga <span>/</span> Silsilah</p><input maxLength={FIELD_LIMITS.familyName} title={`Maksimal ${FIELD_LIMITS.familyName} karakter`} aria-describedby="family-name-limit" aria-label="Nama pohon keluarga" value={family.name || ""} onChange={(event) => { setFamily({ ...family, name: event.target.value }); }} placeholder="Nama keluarga" className="board-title" /><span id="family-name-limit" className="family-title-limit">{(family.name || "").length} / {FIELD_LIMITS.familyName} karakter</span></div>
           </div>
-          <div className="board-header-meta"><p>{family.persons.length} anggota <span>·</span> {family.relationships.length} hubungan</p><p className="board-save-state" role="status" aria-live="polite">{saveStatus === "modified" ? <><Circle size={6} className="fill-[#862d33] text-[#862d33]" /> {fileHandle || dirHandle ? "Belum disimpan ke file" : "Menyimpan…"}</> : saveStatus === "saving" ? "Menyimpan…" : saveStatus === "error" ? "Gagal menyimpan" : <><Check size={12} /> Semua perubahan tersimpan</>}</p></div>
+          <div className="board-header-meta"><p>{family.persons.length} anggota <span>·</span> {family.relationships.length} hubungan</p><SaveIndicator status={saveStatus} hasExternalDestination={Boolean(fileHandle || dirHandle)} restored={hasRestored} /></div>
         </header>
 
         {feedback && (
@@ -629,6 +645,15 @@ export default function Home() {
           onAddChildOfCouple={handleOpenAddChildOfCouple}
           focusPersonId={focusPersonId}
         />
+
+        {/* Backdrop for detail panel on mobile */}
+        {selectedDetailPerson && (
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-xs z-35 sm:hidden transition-opacity"
+            onClick={() => setSelectedDetailPerson(null)}
+            aria-hidden="true"
+          />
+        )}
       </main>
 
       {/* Refactored Validation Integrity Warning Modal */}

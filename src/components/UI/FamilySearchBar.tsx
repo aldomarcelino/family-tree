@@ -12,7 +12,7 @@ interface FamilySearchBarProps {
 export function FamilySearchBar({
   family,
   onSelectPerson,
-  className = "absolute top-24 left-7 z-20 w-64 select-none font-sans",
+  className = "absolute top-20 sm:top-24 left-4 sm:left-7 z-20 w-[min(260px,calc(100vw-32px))] select-none font-sans",
 }: FamilySearchBarProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);

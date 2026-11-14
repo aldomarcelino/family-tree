@@ -1,5 +1,6 @@
 "use client";
 
+import type { TuturMode } from "@/src/services/kinship";
 import { personSchema } from "@/src/schema/family";
 import { nanoid } from "nanoid";
 import { create } from "zustand";
@@ -38,10 +39,14 @@ const pushHistory = (state: {
   };
 };
 
+export type { TuturMode } from "@/src/services/kinship";
+
 interface FamilyStore {
   family: FamilyData;
   past: FamilyData[];
   future: FamilyData[];
+  tuturMode: TuturMode;
+  setTuturMode: (mode: TuturMode) => void;
   loadFamily: (family: FamilyData) => void;
   setFamily: (family: FamilyData) => void;
   addPerson: (person: PersonInput) => Person;
@@ -68,6 +73,15 @@ export const useFamilyStore = create<FamilyStore>((set) => ({
   family: createEmptyFamily(),
   past: [],
   future: [],
+  tuturMode: typeof window !== "undefined" ? ((localStorage.getItem("markoum_tutur_mode") as TuturMode) || "indonesia") : "indonesia",
+  setTuturMode: (mode) => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("markoum_tutur_mode", mode);
+      } catch {}
+    }
+    set({ tuturMode: mode });
+  },
   loadFamily: (family) =>
     set({
       family: withUpdatedAt(family),

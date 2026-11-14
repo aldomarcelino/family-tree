@@ -360,7 +360,28 @@ export function RelationshipModal({
         </section>
         {error && <p role="alert" className="rounded-lg bg-[#fbf4f5] border border-[#eed2d5] p-3 text-xs text-[#862d33]">{error}</p>}
       </div>
-      <footer className="modal-footer"><span className="text-xs text-zinc-400">Hubungan bisa diperbarui nanti.</span><div className="flex gap-2"><Button onClick={onClose} variant="ghost">Batal</Button><Button onClick={handleSubmit} variant="primary" disabled={targetMode === "existing" && !targetPersonId}>{targetMode === "new" ? "Tambahkan ke keluarga" : "Simpan hubungan"}</Button></div></footer>
+      <footer className="modal-footer">
+        <span className="text-xs text-zinc-400 hidden sm:inline">
+          Hubungan bisa diperbarui nanti.
+        </span>
+        <div className="flex w-full sm:w-auto gap-2">
+          <Button
+            onClick={onClose}
+            variant="ghost"
+            className="flex-1 sm:flex-initial"
+          >
+            Batal
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            variant="primary"
+            disabled={targetMode === "existing" && !targetPersonId}
+            className="flex-1 sm:flex-initial"
+          >
+            {targetMode === "new" ? "Tambahkan ke keluarga" : "Simpan hubungan"}
+          </Button>
+        </div>
+      </footer>
     </Modal>
   );
 }
