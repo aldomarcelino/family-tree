@@ -6,6 +6,16 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 let openModalCount = 0;
 let previousBodyOverflow = "";
 
+const MAX_WIDTH_MAP: Record<string, string> = {
+  "max-w-sm": "24rem",
+  "max-w-md": "28rem",
+  "max-w-lg": "32rem",
+  "max-w-xl": "36rem",
+  "max-w-2xl": "42rem",
+  "max-w-3xl": "48rem",
+  "max-w-4xl": "56rem",
+};
+
 interface ModalProps {
   title: string;
   subtitle?: string;
@@ -42,6 +52,8 @@ export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "
 
   if (!isOpen) return null;
 
+  const resolvedMaxWidth = MAX_WIDTH_MAP[maxWidth] || maxWidth;
+
   return (
     <dialog
       ref={dialog}
@@ -64,7 +76,8 @@ export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "
             onClose();
         }
       }}
-      className={`family-modal m-auto w-full max-w-[calc(100vw-32px)] sm:${maxWidth} max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30`}
+      style={{ "--modal-max-width": resolvedMaxWidth } as React.CSSProperties}
+      className="family-modal m-auto w-full max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30"
     >
       <div className="flex max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] flex-col">
         <header className="modal-heading">

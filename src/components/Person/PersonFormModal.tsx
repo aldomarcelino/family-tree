@@ -202,7 +202,7 @@ export function PersonFormModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={person ? "Edit anggota" : "Tambah anggota keluarga"} subtitle={person ? person.fullName : "Isi identitas anggota yang ingin ditambahkan ke silsilah."} eyebrow={person ? "Catatan anggota" : "Anggota baru"} maxWidth="max-w-3xl">
+    <Modal isOpen={isOpen} onClose={onClose} title={person ? "Edit anggota" : "Tambah anggota keluarga"} subtitle={person ? person.fullName : "Isi identitas anggota yang ingin ditambahkan ke silsilah."} eyebrow={person ? "Catatan anggota" : "Anggota baru"} maxWidth="max-w-2xl">
       <div className="person-editor min-h-0 flex-1">
         <aside className="editor-sidebar">
           <div className="editor-photo">{previewUrl ? <img src={previewUrl} alt="Foto anggota" /> : <span>{getPersonInitials(form.fullName)}</span>}</div>
