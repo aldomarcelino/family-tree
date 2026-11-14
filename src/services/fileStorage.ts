@@ -59,18 +59,19 @@ const formatZodError = (error: { issues: Array<{ path: PropertyKey[]; message: s
     .join("\n");
 
 export const parseFamilyJSON = (contents: string): FamilyData => {
+  if (!contents.trim()) throw new Error("Data JSON masih kosong. Tempel JSON silsilah terlebih dahulu.");
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(contents);
+    parsed = JSON.parse(contents.replace(/^\uFEFF/, ""));
   } catch {
-    throw new Error("The selected file is not valid JSON.");
+    throw new Error("JSON belum valid. Periksa tanda kutip, koma, dan kurung pada teks JSON.");
   }
 
   const result = familyDataSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`The selected family file is invalid:\n${formatZodError(result.error)}`);
+    throw new Error(`Data silsilah belum sesuai format Markoum:\n${formatZodError(result.error)}`);
   }
 
   return result.data;

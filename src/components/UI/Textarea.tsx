@@ -35,7 +35,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
               : "border-zinc-200 hover:border-zinc-300 focus:border-[#862d33] focus:ring-2 focus:ring-[#862d33]/15"
           } ${className}`}
           {...props}
-          aria-invalid={Boolean(fieldError)}
+          aria-invalid={fieldError ? true : props["aria-invalid"]}
           aria-describedby={[props["aria-describedby"], (fieldError || hint || showCount) ? descriptionId : null].filter(Boolean).join(" ") || undefined}
         />
 

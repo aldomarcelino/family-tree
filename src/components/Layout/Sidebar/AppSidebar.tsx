@@ -10,16 +10,9 @@ import {
   PanelLeftClose,
   Search,
   Plus,
-  FolderOpen,
-  FilePlus,
-  Download,
-  FileJson,
   ChevronRight,
-  ChartNoAxesColumn,
-  HardDrive,
-  FileText,
-  FolderGit2,
 } from "lucide-react";
+import { StoragePanel } from "@/src/components/Layout/Sidebar/StoragePanel";
 import { Select } from "@/src/components/UI/Select";
 import type {
   Person,
@@ -39,7 +32,9 @@ interface AppSidebarProps {
   onAddMember: () => void;
   validationErrors: string[];
   onShowValidationErrors: () => void;
+  familyName: string;
   fileName: string;
+  canOpenDirectory: boolean;
   dirHandle?: FolderDirectoryHandle | null;
   fileHandle?: WritableFamilyFileHandle | null;
   viewMode: "full" | "ancestor" | "descendant" | "branch";
@@ -48,6 +43,8 @@ interface AppSidebarProps {
   ) => void;
   onFocusPersonChange?: (id: string) => void;
   onLoadFile: () => void;
+  onPasteJSON: () => void;
+  onSaveFile: () => void;
   onLoadDirectory: () => void;
   onNewTree: () => void;
   onExportBackup: () => void;
@@ -64,13 +61,17 @@ export function AppSidebar({
   onAddMember,
   validationErrors,
   onShowValidationErrors,
+  familyName,
   fileName,
+  canOpenDirectory,
   dirHandle,
   fileHandle,
   viewMode,
   onViewModeChange,
   onFocusPersonChange,
   onLoadFile,
+  onPasteJSON,
+  onSaveFile,
   onLoadDirectory,
   onNewTree,
   onExportBackup,
@@ -92,7 +93,7 @@ export function AppSidebar({
       inert={!isOpen}
       className={`family-sidebar ${isOpen ? "sidebar-open" : "sidebar-closed"}`}
     >
-      <div className="flex h-full w-72 flex-col">
+      <div className="flex h-full w-full min-w-0 flex-col">
         <header className="flex items-center justify-between px-5 py-6 bg-transparent">
           <div className="flex items-center gap-1">
             <Image
@@ -268,143 +269,21 @@ export function AppSidebar({
             </section>
           </>
         ) : (
-          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
-            <section className="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3.5">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                  Lokasi Berkas
-                </span>
-                <span className="flex items-center gap-1 text-[10px] font-medium text-zinc-600 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
-                  {dirHandle ? (
-                    <FolderGit2 size={10} className="text-zinc-500" />
-                  ) : fileHandle ? (
-                    <FileText size={10} className="text-zinc-500" />
-                  ) : (
-                    <HardDrive size={10} className="text-zinc-500" />
-                  )}
-                  {dirHandle
-                    ? "Folder Lokal"
-                    : fileHandle
-                      ? "Berkas Lokal"
-                      : "Browser"}
-                </span>
-              </div>
-              <p
-                className="truncate text-xs font-semibold text-zinc-900"
-                title={fileName}
-              >
-                {fileName}
-              </p>
-              <p className="mt-1 text-[11px] text-zinc-500 leading-tight">
-                {dirHandle
-                  ? `Folder: ${dirHandle.name}`
-                  : fileHandle
-                    ? "Berkas lokal komputer"
-                    : "Penyimpanan browser otomatis"}
-              </p>
-              <p className="mt-2 text-[10px] text-zinc-400">
-                {persons.length} anggota · {relationships.length} hubungan
-              </p>
-            </section>
-
-            <section className="space-y-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block mb-1">
-                Impor Silsilah
-              </span>
-              <button
-                type="button"
-                onClick={onLoadFile}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 transition"
-              >
-                <FileJson size={15} className="text-zinc-500 shrink-0" />
-                <div className="min-w-0">
-                  <span className="block font-medium">Buka berkas JSON</span>
-                  <span className="block text-[10px] text-zinc-400">
-                    Pilih berkas silsilah .json
-                  </span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={onLoadDirectory}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 transition"
-              >
-                <FolderOpen size={15} className="text-zinc-500 shrink-0" />
-                <div className="min-w-0">
-                  <span className="block font-medium">
-                    Buka folder keluarga
-                  </span>
-                  <span className="block text-[10px] text-zinc-400">
-                    Folder berisi foto dan data
-                  </span>
-                </div>
-              </button>
-            </section>
-
-            <section className="space-y-1 border-t border-zinc-200 pt-3">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block mb-1">
-                Ekspor Silsilah
-              </span>
-              <button
-                type="button"
-                onClick={onExportBackup}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 transition"
-              >
-                <Download size={15} className="text-zinc-500 shrink-0" />
-                <div className="min-w-0">
-                  <span className="block font-medium">
-                    Unduh cadangan (JSON)
-                  </span>
-                  <span className="block text-[10px] text-zinc-400">
-                    Simpan silsilah lengkap ke file
-                  </span>
-                </div>
-              </button>
-            </section>
-
-            <section className="space-y-1 border-t border-zinc-200 pt-3">
-              <button
-                type="button"
-                onClick={onNewTree}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-xs text-zinc-700 hover:bg-zinc-100 transition"
-              >
-                <FilePlus size={15} className="text-zinc-500 shrink-0" />
-                <div className="min-w-0">
-                  <span className="block font-medium">Buat silsilah baru</span>
-                  <span className="block text-[10px] text-zinc-400">
-                    Reset dan mulai pohon baru
-                  </span>
-                </div>
-              </button>
-            </section>
-
-            <section className="border-t border-zinc-200 pt-4">
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-medium">
-                <ChartNoAxesColumn size={15} className="text-zinc-500" />{" "}
-                Ringkasan keluarga
-              </h2>
-              <dl className="space-y-2.5 text-xs text-zinc-500">
-                {[
-                  ["Anggota", persons.length],
-                  [
-                    "Pasangan",
-                    relationships.filter((r) => r.type === "marriage").length,
-                  ],
-                  [
-                    "Orang tua & anak",
-                    relationships.filter(
-                      (r) => r.type === "parent" || r.type === "adoption",
-                    ).length,
-                  ],
-                ].map(([label, count]) => (
-                  <div key={label} className="flex justify-between">
-                    <dt>{label}</dt>
-                    <dd className="text-zinc-900 tabular-nums">{count}</dd>
-                  </div>
-                ))}
-              </dl>
-            </section>
-          </div>
+          <StoragePanel
+            familyName={familyName}
+            fileName={fileName}
+            personCount={persons.length}
+            relationshipCount={relationships.length}
+            directoryName={dirHandle?.name}
+            hasFileHandle={Boolean(fileHandle)}
+            canOpenDirectory={canOpenDirectory}
+            onLoadFile={onLoadFile}
+            onPasteJSON={onPasteJSON}
+            onLoadDirectory={onLoadDirectory}
+            onSaveFile={onSaveFile}
+            onExportBackup={onExportBackup}
+            onNewTree={onNewTree}
+          />
         )}
         {validationErrors.length > 0 && (
           <footer className="border-t border-zinc-200 px-5 py-3">

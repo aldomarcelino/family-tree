@@ -6,10 +6,12 @@ import { Button } from "@/src/components/UI/Button";
 interface EmptyFamilyStateProps {
   onAddPerson: () => void;
   onOpenFile: () => void;
+  onPasteJSON: () => void;
+  canOpenDirectory: boolean;
   onOpenFolder: () => void;
 }
 
-export function EmptyFamilyState({ onAddPerson, onOpenFile, onOpenFolder }: EmptyFamilyStateProps) {
+export function EmptyFamilyState({ onAddPerson, onOpenFile, onPasteJSON, onOpenFolder, canOpenDirectory }: EmptyFamilyStateProps) {
   return (
     <section className="empty-family" aria-labelledby="empty-family-title">
       <div className="empty-family-content">
@@ -30,7 +32,7 @@ export function EmptyFamilyState({ onAddPerson, onOpenFile, onOpenFolder }: Empt
         <h2 id="empty-family-title">Mulai silsilah keluarga Anda</h2>
         <p className="empty-family-description">Tambahkan diri Anda atau anggota keluarga lain, lalu hubungkan orang tua, pasangan, dan anak.</p>
         <Button variant="primary" onClick={onAddPerson} className="empty-family-add"><Plus size={16} /> Tambah anggota pertama</Button>
-        <div className="empty-family-import"><p>Sudah punya data keluarga?</p><div><button type="button" onClick={onOpenFile}>Buka file <ArrowUpRight size={13} /></button><span aria-hidden="true">·</span><button type="button" onClick={onOpenFolder}><FolderOpen size={13} /> Buka folder</button></div></div>
+        <div className="empty-family-import"><p>Sudah punya data keluarga?</p><div><button type="button" onClick={onOpenFile}>Buka file <ArrowUpRight size={13} /></button><span aria-hidden="true">·</span><button type="button" onClick={onPasteJSON}>Tempel JSON <ArrowUpRight size={13} /></button>{canOpenDirectory && <><span aria-hidden="true">·</span><button type="button" onClick={onOpenFolder}><FolderOpen size={13} /> Buka folder</button></>}</div></div>
       </div>
     </section>
   );

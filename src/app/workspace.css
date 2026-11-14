@@ -10,6 +10,25 @@
 .sidebar-open { width: 288px; }
 .sidebar-closed { width: 0; border: 0; }
 
+.storage-action { display: flex; width: 100%; align-items: center; gap: 10px; min-height: 64px; padding: 10px; border: 1px solid transparent; border-radius: 10px; text-align: left; color: #3f3f46; cursor: pointer; transition: background 150ms, border-color 150ms; }
+.storage-action:hover { background: #f4f4f5; }
+.storage-action:focus-visible { outline: 2px solid #862d33; outline-offset: 2px; }
+.storage-action-icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 36px; color: #71717a; }
+.storage-action-featured { border-color: #eed2d5; background: #fbf4f5; color: #862d33; }
+.storage-action-featured:hover { background: #f7eaec; border-color: #dcb5b9; }
+.storage-action-featured .storage-action-icon { color: #862d33; }
+.storage-action:disabled { cursor: default; color: #71717a; }
+.storage-action:disabled:hover { background: transparent; }
+.storage-action:disabled .storage-action-icon { color: #a1a1aa; }
+.json-import-input { min-height: 160px; max-height: 38dvh; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 16px; line-height: 1.6; }
+.json-import-input[aria-invalid="true"] { border-color: #c9989d; }
+.modal-footer.json-import-footer { justify-content: flex-end; }
+.json-import-footer > button { min-height: 44px; }
+@media (max-width: 640px) {
+  .json-import-footer > button { flex: 1; }
+  .empty-family-import > div { flex-wrap: wrap; }
+}
+
 @media (max-width: 1023px) {
   .family-sidebar {
     position: fixed;

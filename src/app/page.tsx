@@ -13,6 +13,7 @@ import { RelationshipModal } from "@/src/components/Person/RelationshipModal";
 import { PersonDetailPanel } from "@/src/components/UI/PersonDetailPanel";
 import { AppSidebar } from "@/src/components/Layout/Sidebar/AppSidebar";
 import { DeletePersonModal } from "@/src/components/Modals/DeletePersonModal";
+import { ImportJSONModal } from "@/src/components/Modals/ImportJSONModal";
 import { NewTreeModal } from "@/src/components/Modals/NewTreeModal";
 import { IntegrityWarningModal } from "@/src/components/Modals/IntegrityWarningModal";
 import {
@@ -31,6 +32,7 @@ import { getTreeLayout } from "@/src/services/layoutEngine";
 import { useFamilyStore } from "@/src/store/familyStore";
 import { validateFamilyData } from "@/src/schema/family";
 import type {
+  FamilyData,
   Person,
   PersonInput,
   RelationshipType,
@@ -75,8 +77,10 @@ export default function Home() {
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [collapsedPersonIds, setCollapsedPersonIds] = useState<Set<string>>(new Set());
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [canOpenDirectory, setCanOpenDirectory] = useState(false);
 
   useEffect(() => {
+    setCanOpenDirectory(typeof window !== "undefined" && "showDirectoryPicker" in window);
     if (typeof window !== "undefined" && window.innerWidth >= 1024) {
       setIsSidebarOpen(true);
     }
@@ -92,6 +96,7 @@ export default function Home() {
   const [relModalInitialPersonId, setRelModalInitialPersonId] = useState<string | undefined>(undefined);
   const [relModalInitialSecondPersonId, setRelModalInitialSecondPersonId] = useState<string | undefined>(undefined);
   const [relModalInitialRole, setRelModalInitialRole] = useState<"parent" | "spouse" | "child" | "sibling" | undefined>(undefined);
+  const [isImportJSONOpen, setIsImportJSONOpen] = useState(false);
   const [isNewTreeModalOpen, setIsNewTreeModalOpen] = useState(false);
 
   // Validation & Integrity Warnings
@@ -222,19 +227,34 @@ export default function Home() {
     };
   }, [showFeedback]);
 
+  // Use the same reset path for files, folders, and pasted JSON.
+  const applyImportedFamily = (data: FamilyData, name: string, file: WritableFamilyFileHandle | null = null, directory: FolderDirectoryHandle | null = null) => {
+    loadFamilyAction(data);
+    setFileName(name);
+    setFileHandle(file);
+    setDirHandle(directory);
+    setSavedFileSnapshot(getFamilySnapshot(data));
+    setFileSaveError(false);
+    setLayoutMode("auto");
+    setCollapsedPersonIds(new Set());
+    setFocusPersonId(null);
+    setViewMode("full");
+    setSelectedDetailPerson(null);
+    setSelectedPerson(null);
+  };
+
+  const handleImportJSON = (data: FamilyData) => {
+    applyImportedFamily(data, "silsilah-keluarga.json");
+    setIsImportJSONOpen(false);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+    showFeedback(`Silsilah “${data.name}” berhasil dibuka dari JSON.`);
+  };
+
   // File Handlers
   const handleLoadFile = async () => {
     try {
       const loaded = await loadJSONFile();
-      loadFamilyAction(loaded.family);
-      setFileName(loaded.fileName);
-      setFileHandle(loaded.handle);
-      setDirHandle(null);
-      setSavedFileSnapshot(getFamilySnapshot(loaded.family));
-      setFileSaveError(false);
-      setLayoutMode("auto");
-      setCollapsedPersonIds(new Set());
-      setFocusPersonId(null);
+      applyImportedFamily(loaded.family, loaded.fileName, loaded.handle);
       showFeedback(`Berhasil memuat berkas "${loaded.fileName}"`);
     } catch (error) {
       showFeedback(error instanceof Error ? error.message : "Gagal memuat berkas.", "error");
@@ -252,15 +272,7 @@ export default function Home() {
         showDirectoryPicker: () => Promise<FolderDirectoryHandle>;
       }).showDirectoryPicker();
       const familyData = await loadFamilyFromDirectory(handle);
-      loadFamilyAction(familyData);
-      setDirHandle(handle);
-      setFileHandle(null);
-      setFileName(`${handle.name} (Folder)`);
-      setSavedFileSnapshot(getFamilySnapshot(familyData));
-      setFileSaveError(false);
-      setLayoutMode("auto");
-      setCollapsedPersonIds(new Set());
-      setFocusPersonId(null);
+      applyImportedFamily(familyData, `${handle.name} (Folder)`, null, handle);
       showFeedback(`Berhasil membuka folder "${handle.name}"`);
     } catch (error) {
       showFeedback(
@@ -521,6 +533,8 @@ export default function Home() {
         }}
         validationErrors={validationErrors}
         onShowValidationErrors={() => setShowValidationOverlay(true)}
+        familyName={family.name}
+        canOpenDirectory={canOpenDirectory}
         fileName={fileName}
         dirHandle={dirHandle}
         fileHandle={fileHandle}
@@ -533,6 +547,8 @@ export default function Home() {
         }}
         onFocusPersonChange={handleFocusPerson}
         onLoadFile={handleLoadFile}
+        onPasteJSON={() => setIsImportJSONOpen(true)}
+        onSaveFile={handleSaveFile}
         onLoadDirectory={handleLoadDirectory}
         onNewTree={handleNewTree}
         onExportBackup={handleExportBackup}
@@ -587,6 +603,8 @@ export default function Home() {
             <EmptyFamilyState
               onAddPerson={() => { setSelectedPerson(null); setIsPersonModalOpen(true); }}
               onOpenFile={handleLoadFile}
+              onPasteJSON={() => setIsImportJSONOpen(true)}
+              canOpenDirectory={canOpenDirectory}
               onOpenFolder={handleLoadDirectory}
             />
           ) : (
@@ -699,6 +717,12 @@ export default function Home() {
         onCancel={() => setPendingDeletePersonId(null)}
         onConfirm={confirmDeletePerson}
       />
+      {isImportJSONOpen && <ImportJSONModal
+        currentFamilyName={family.name}
+        hasCurrentData={family.persons.length > 0}
+        onClose={() => setIsImportJSONOpen(false)}
+        onImport={handleImportJSON}
+      />}
       <NewTreeModal
         isOpen={isNewTreeModalOpen}
         familyName={family.name}
