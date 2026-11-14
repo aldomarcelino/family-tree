@@ -25,9 +25,20 @@ interface ModalProps {
   maxWidth?: string;
   eyebrow?: string;
   role?: "dialog" | "alertdialog";
+  fullHeight?: boolean;
 }
 
-export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "max-w-2xl", eyebrow = "Markoum · Arsip silsilah", role = "dialog" }: ModalProps) {
+export function Modal({
+  title,
+  subtitle,
+  children,
+  isOpen,
+  onClose,
+  maxWidth = "max-w-2xl",
+  eyebrow = "Markoum · Arsip silsilah",
+  role = "dialog",
+  fullHeight = false,
+}: ModalProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -77,9 +88,11 @@ export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "
         }
       }}
       style={{ "--modal-max-width": resolvedMaxWidth } as React.CSSProperties}
-      className="family-modal m-auto w-full max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30"
+      className={`family-modal ${
+        fullHeight ? "family-modal--full-height h-[calc(100dvh-32px)] sm:h-[calc(100dvh-48px)]" : ""
+      } m-auto w-full max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] overflow-hidden rounded-xl border border-zinc-200 bg-white p-0 text-zinc-900 shadow-2xl backdrop:bg-zinc-950/30`}
     >
-      <div className="flex max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)] flex-col">
+      <div className={`flex ${fullHeight ? "h-full" : "max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)]"} flex-col`}>
         <header className="modal-heading">
           <div>
             <p className="modal-eyebrow">{eyebrow}</p>

@@ -27,7 +27,11 @@ import { getFocusWaveSchedule } from "@/src/services/focusWave";
 import { FAMILY_LINE_COLOR } from "@/src/services/familyLineColors";
 import { getTreeLayout } from "@/src/services/layoutEngine";
 import { useFamilyStore } from "@/src/store/familyStore";
-import type { FamilyData, Person, FolderDirectoryHandle } from "@/src/types/family";
+import type {
+  FamilyData,
+  Person,
+  FolderDirectoryHandle,
+} from "@/src/types/family";
 
 const nodeTypes: NodeTypes = {
   person: PersonNode,
@@ -95,32 +99,70 @@ function FamilyTreeInner({
 }: FamilyTreeProps) {
   const [showMinimap, setShowMinimap] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
-  const updatePersonLayout = useFamilyStore((state) => state.updatePersonLayout);
+  const updatePersonLayout = useFamilyStore(
+    (state) => state.updatePersonLayout,
+  );
   const tuturMode = useFamilyStore((state) => state.tuturMode);
 
-  const { nodes: layoutNodes, edges } = useMemo(() => getTreeLayout(
-    family,
-    viewMode,
-    focusPersonId,
-    onEditPerson,
-    onSelectPerson,
-    onFocusPerson,
-    dirHandle,
-    collapsedPersonIds,
-    onToggleCollapse,
-    layoutMode,
-    onAddRelative,
-    onDeletePerson,
-    tuturMode,
-  ), [family, viewMode, focusPersonId, onEditPerson, onSelectPerson, onFocusPerson, dirHandle,
-    collapsedPersonIds, onToggleCollapse, layoutMode, onAddRelative, onDeletePerson, tuturMode]);
-  const waveSchedule = useMemo(() => getFocusWaveSchedule(layoutNodes, edges, focusPersonId), [layoutNodes, edges, focusPersonId]);
-  const waveKey = focusRequest > 0 && focusPersonId ? `${focusPersonId}:${focusRequest}` : undefined;
-  const nodes = useMemo(() => layoutNodes.map((node) => node.type === "person" ?
-    { ...node, data: { ...node.data, isDetailOpen: node.id === selectedDetailPersonId,
-      waveKey: waveSchedule.nodes.has(node.id) ? waveKey : undefined,
-      waveArrival: waveSchedule.nodes.get(node.id), waveIsOrigin: node.id === focusPersonId } } : node),
-    [layoutNodes, selectedDetailPersonId, waveSchedule, waveKey, focusPersonId]);
+  const { nodes: layoutNodes, edges } = useMemo(
+    () =>
+      getTreeLayout(
+        family,
+        viewMode,
+        focusPersonId,
+        onEditPerson,
+        onSelectPerson,
+        onFocusPerson,
+        dirHandle,
+        collapsedPersonIds,
+        onToggleCollapse,
+        layoutMode,
+        onAddRelative,
+        onDeletePerson,
+        tuturMode,
+      ),
+    [
+      family,
+      viewMode,
+      focusPersonId,
+      onEditPerson,
+      onSelectPerson,
+      onFocusPerson,
+      dirHandle,
+      collapsedPersonIds,
+      onToggleCollapse,
+      layoutMode,
+      onAddRelative,
+      onDeletePerson,
+      tuturMode,
+    ],
+  );
+  const waveSchedule = useMemo(
+    () => getFocusWaveSchedule(layoutNodes, edges, focusPersonId),
+    [layoutNodes, edges, focusPersonId],
+  );
+  const waveKey =
+    focusRequest > 0 && focusPersonId
+      ? `${focusPersonId}:${focusRequest}`
+      : undefined;
+  const nodes = useMemo(
+    () =>
+      layoutNodes.map((node) =>
+        node.type === "person"
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                isDetailOpen: node.id === selectedDetailPersonId,
+                waveKey: waveSchedule.nodes.has(node.id) ? waveKey : undefined,
+                waveArrival: waveSchedule.nodes.get(node.id),
+                waveIsOrigin: node.id === focusPersonId,
+              },
+            }
+          : node,
+      ),
+    [layoutNodes, selectedDetailPersonId, waveSchedule, waveKey, focusPersonId],
+  );
   const { getNode, getViewport, setCenter, fitView } = useReactFlow();
   const nodesInitialized = useNodesInitialized();
   const handledFocus = useRef(0);
@@ -130,32 +172,63 @@ function FamilyTreeInner({
   const focusY = focusNode?.position.y;
 
   useEffect(() => {
-    if (!focusRequest || handledFocus.current === focusRequest || !focusPersonId || !nodesInitialized || focusX === undefined || focusY === undefined) return;
+    if (
+      !focusRequest ||
+      handledFocus.current === focusRequest ||
+      !focusPersonId ||
+      !nodesInitialized ||
+      focusX === undefined ||
+      focusY === undefined
+    )
+      return;
     const frame = requestAnimationFrame(() => {
       const node = getNode(focusPersonId);
       if (!node) return;
       handledFocus.current = focusRequest;
       const zoom = Math.min(1.15, Math.max(0.85, getViewport().zoom));
-      setCenter(node.position.x + (node.width ?? 236) / 2, node.position.y + (node.height ?? 128) / 2, { zoom, duration: 400 });
+      setCenter(
+        node.position.x + (node.width ?? 236) / 2,
+        node.position.y + (node.height ?? 128) / 2,
+        { zoom, duration: 400 },
+      );
     });
     return () => cancelAnimationFrame(frame);
-  }, [focusRequest, focusPersonId, focusX, focusY, nodesInitialized, getNode, getViewport, setCenter]);
+  }, [
+    focusRequest,
+    focusPersonId,
+    focusX,
+    focusY,
+    nodesInitialized,
+    getNode,
+    getViewport,
+    setCenter,
+  ]);
 
   useEffect(() => {
-    if (!arrangeRequest || handledArrange.current === arrangeRequest || !nodesInitialized) return;
+    if (
+      !arrangeRequest ||
+      handledArrange.current === arrangeRequest ||
+      !nodesInitialized
+    )
+      return;
     let frame = 0;
     let attempts = 0;
     const arrange = () => {
-      const fitted = fitView({ nodes: layoutNodes.filter((node) => node.type === "person"), padding: .15, duration: 450 });
+      const fitted = fitView({
+        nodes: layoutNodes.filter((node) => node.type === "person"),
+        padding: 0.15,
+        duration: 450,
+      });
       if (fitted) handledArrange.current = arrangeRequest;
       else if (attempts++ < 5) frame = requestAnimationFrame(arrange);
     };
     // Controlled node positions and measured dimensions reach ReactFlow on
     // separate frames. Do not mark the request handled before fitting succeeds.
-    frame = requestAnimationFrame(() => { frame = requestAnimationFrame(arrange); });
+    frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(arrange);
+    });
     return () => cancelAnimationFrame(frame);
   }, [arrangeRequest, nodesInitialized, layoutNodes, fitView]);
-
 
   const { zoom } = useViewport();
   const lineScale = 1 / Math.max(zoom, 0.15);
@@ -165,8 +238,7 @@ function FamilyTreeInner({
     return edges.map((edge) => {
       const rel = family.relationships.find(
         (r) =>
-          r.id === edge.id ||
-          (r.from === edge.source && r.to === edge.target),
+          r.id === edge.id || (r.from === edge.source && r.to === edge.target),
       );
 
       const type = rel?.type ?? edge.data?.relationshipType;
@@ -174,8 +246,12 @@ function FamilyTreeInner({
 
       const color = FAMILY_LINE_COLOR;
       const timing = waveKey ? waveSchedule.edges.get(edge.id) : undefined;
-      const data = { ...edge.data, relationshipType: type, visualScale: lineScale,
-        wave: timing ? { ...timing, key: waveKey } : undefined };
+      const data = {
+        ...edge.data,
+        relationshipType: type,
+        visualScale: lineScale,
+        wave: timing ? { ...timing, key: waveKey } : undefined,
+      };
       if (type === "marriage") {
         return {
           ...edge,
@@ -188,20 +264,36 @@ function FamilyTreeInner({
         };
       }
 
-      let style: React.CSSProperties = { stroke: color, strokeWidth: 1.4 * lineScale };
+      let style: React.CSSProperties = {
+        stroke: color,
+        strokeWidth: 1.4 * lineScale,
+      };
       let label: string | undefined = undefined;
 
       if (type === "adoption") {
-        style = { stroke: color, strokeWidth: 1.4 * lineScale, strokeDasharray: `${5 * lineScale},${4 * lineScale}` };
+        style = {
+          stroke: color,
+          strokeWidth: 1.4 * lineScale,
+          strokeDasharray: `${5 * lineScale},${4 * lineScale}`,
+        };
         label = "Anak adopsi";
       } else if (type === "stepParent") {
-        style = { stroke: color, strokeWidth: 1.4 * lineScale, strokeDasharray: `${lineScale},${5 * lineScale}`, strokeLinecap: "round" };
-        label = "Anak tiri";
+        style = {
+          stroke: color,
+          strokeWidth: 1.4 * lineScale,
+          strokeDasharray: `${lineScale},${5 * lineScale}`,
+          strokeLinecap: "round",
+        };
+        label = "Anak Sambung";
       } else if (type === "parent") {
         style = { stroke: color, strokeWidth: 1.4 * lineScale };
         label = "Anak";
       } else if (type === "sibling") {
-        style = { stroke: color, strokeWidth: 1.4 * lineScale, strokeDasharray: `${8 * lineScale},${5 * lineScale}` };
+        style = {
+          stroke: color,
+          strokeWidth: 1.4 * lineScale,
+          strokeDasharray: `${8 * lineScale},${5 * lineScale}`,
+        };
         label = "Saudara";
       }
 
@@ -209,7 +301,13 @@ function FamilyTreeInner({
         ...edge,
         type: "family",
         data,
-        ...(type === "sibling" ? { sourceHandle: "sibling-source", targetHandle: "sibling-target", pathOptions: { offset: 36, borderRadius: 8 } } : {}),
+        ...(type === "sibling"
+          ? {
+              sourceHandle: "sibling-source",
+              targetHandle: "sibling-target",
+              pathOptions: { offset: 36, borderRadius: 8 },
+            }
+          : {}),
         markerEnd: undefined,
         style,
         label: undefined,
@@ -217,11 +315,23 @@ function FamilyTreeInner({
         labelShowBg: false,
       };
     });
-  }, [edges, family.relationships, family.persons, lineScale, waveKey, waveSchedule]);
+  }, [
+    edges,
+    family.relationships,
+    family.persons,
+    lineScale,
+    waveKey,
+    waveSchedule,
+  ]);
 
   const handleNodeDragStop = (_event: React.MouseEvent, node: Node) => {
     const initial = nodes.find((item) => item.id === node.id);
-    if (initial && Math.abs(initial.position.x - node.position.x) < 0.5 && Math.abs(initial.position.y - node.position.y) < 0.5) return;
+    if (
+      initial &&
+      Math.abs(initial.position.x - node.position.x) < 0.5 &&
+      Math.abs(initial.position.y - node.position.y) < 0.5
+    )
+      return;
     if (layoutMode === "auto" && onLayoutModeChange) {
       onLayoutModeChange("manual");
     }
@@ -233,11 +343,16 @@ function FamilyTreeInner({
     setIsExportingImage(true);
     try {
       await exportCurrentBoardAsImage(family.name);
-      onFeedback?.("Tampilan kanvas silsilah berhasil diekspor sebagai gambar PNG.", "success");
+      onFeedback?.(
+        "Tampilan kanvas silsilah berhasil diekspor sebagai gambar PNG.",
+        "success",
+      );
     } catch (error) {
       onFeedback?.(
-        error instanceof Error ? error.message : "Gagal mengekspor gambar kanvas.",
-        "error"
+        error instanceof Error
+          ? error.message
+          : "Gagal mengekspor gambar kanvas.",
+        "error",
       );
     } finally {
       setIsExportingImage(false);
@@ -262,18 +377,21 @@ function FamilyTreeInner({
       onNodeDragStop={handleNodeDragStop}
     >
       <Background color="#d4d4d8" gap={28} size={0.8} />
-      {showMinimap && <MiniMap
-        maskColor="rgba(241, 245, 249, 0.7)"
-        nodeColor="#862d33"
-        nodeStrokeWidth={2}
-        pannable
-        position="bottom-left"
-        zoomable
-      />}
-
+      {showMinimap && (
+        <MiniMap
+          maskColor="rgba(241, 245, 249, 0.7)"
+          nodeColor="#862d33"
+          nodeStrokeWidth={2}
+          pannable
+          position="bottom-left"
+          zoomable
+        />
+      )}
 
       {/* Floating Canvas Search */}
-      {showSearch && <FamilySearchBar family={family} onSelectPerson={onSelectPerson} />}
+      {showSearch && (
+        <FamilySearchBar family={family} onSelectPerson={onSelectPerson} />
+      )}
 
       {/* Floating Canvas Toolbar */}
       <CanvasToolbar

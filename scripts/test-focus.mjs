@@ -1,25 +1,6 @@
-import fs from "node:fs";
-import path from "node:path";
-import vm from "node:vm";
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { fileURLToPath } from "node:url";
-import ts from "typescript";
-const root = fileURLToPath(new URL("..", import.meta.url));
-function load(name) {
-  const file = path.join(root, "src/services", name + ".ts");
-  const compiled = { exports: {} };
-  const code = ts.transpileModule(fs.readFileSync(file, "utf8"), {
-    compilerOptions: {
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2020,
-    },
-  }).outputText;
-  vm.runInThisContext(`(function(module,exports){${code}\n})`, {
-    filename: file,
-  })(compiled, compiled.exports);
-  return compiled.exports;
-}
+import { loadService as load } from "./load-service.mjs";
 const { getKinshipLabels } = load("kinship");
 const { getFocusWaveSchedule } = load("focusWave");
 const family = {

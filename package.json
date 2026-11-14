@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:layout": "node --test scripts/test-layout.mjs",
     "test:relationships": "node --test scripts/test-relationships.mjs",
-    "test:focus": "node --test scripts/test-focus.mjs"
+    "test:focus": "node --test scripts/test-focus.mjs",
+    "test:kinship": "node --test scripts/test-kinship.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
