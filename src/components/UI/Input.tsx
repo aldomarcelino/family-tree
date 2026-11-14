@@ -25,7 +25,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label htmlFor={inputId} className="block text-xs font-medium text-zinc-600">
             {label}
-            {props.required && <span className="text-blue-500 ml-0.5">*</span>}
+            {props.required && <span className="text-[#862d33] ml-0.5">*</span>}
           </label>
         )}
 
@@ -39,12 +39,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             id={inputId}
-            className={`w-full min-w-0 rounded-lg border bg-white text-[13px] font-normal text-zinc-900 placeholder:text-zinc-400 outline-none transition duration-150 disabled:bg-zinc-50 disabled:text-zinc-400 ${
+            className={`h-[42px] w-full min-w-0 rounded-lg border bg-white text-[13px] leading-5 font-normal text-zinc-900 placeholder:text-zinc-400 outline-none transition duration-150 disabled:bg-zinc-50 disabled:text-zinc-400 ${
               leftIcon ? "pl-9" : "px-3.5"
             } ${rightElement ? "pr-10" : "pr-3.5"} py-2.5 ${
               fieldError
-                ? "border-blue-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                : "border-zinc-200 hover:border-zinc-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-600/10"
+                ? "border-[#eed2d5] focus:border-[#862d33] focus:ring-2 focus:ring-[#862d33]/15"
+                : "border-zinc-200 hover:border-zinc-300 focus:border-[#862d33] focus:ring-2 focus:ring-[#862d33]/15"
             } ${className}`}
             {...props}
             aria-invalid={Boolean(fieldError)}
@@ -58,7 +58,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
         </div>
 
-        {(fieldError || hint || showCount) && <div id={descriptionId} className="flex items-start justify-between gap-3 text-[10px] leading-4"><p className={`min-w-0 ${fieldError ? "text-blue-700" : "text-zinc-400"}`}>{fieldError || hint}</p>{showCount && <span className={`shrink-0 tabular-nums ${fieldError || count >= props.maxLength! ? "text-blue-600" : "text-zinc-400"}`}>{counterLabel ?? `${count.toLocaleString("id-ID")} / ${props.maxLength!.toLocaleString("id-ID")}`}</span>}</div>}
+        {(fieldError || hint || showCount) && <div id={descriptionId} className="flex items-start justify-between gap-3 text-[10px] leading-4"><p className={`min-w-0 ${fieldError ? "text-[#862d33]" : "text-zinc-400"}`}>{fieldError || hint}</p>{showCount && <span className={`shrink-0 tabular-nums ${fieldError || count >= props.maxLength! ? "text-[#862d33]" : "text-zinc-400"}`}>{counterLabel ?? `${count.toLocaleString("id-ID")} / ${props.maxLength!.toLocaleString("id-ID")}`}</span>}</div>}
 
       </div>
     );

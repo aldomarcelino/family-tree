@@ -54,7 +54,7 @@ export function Tabs({
             {item.count !== undefined && (
               <span
                 className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ml-0.5 ${
-                  isActive ? "bg-blue-50 text-blue-700" : "bg-zinc-200/70 text-zinc-600"
+                  isActive ? "bg-[#fbf4f5] text-[#862d33]" : "bg-zinc-200/70 text-zinc-600"
                 }`}
               >
                 {item.count}

@@ -2,12 +2,20 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #0f172a;
+  --foreground: #18181b;
+  --maroon: #862d33;
+  --maroon-hover: #72262b;
+  --maroon-subtle: #fbf4f5;
+  --maroon-border: #eed2d5;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-maroon: #862d33;
+  --color-maroon-hover: #72262b;
+  --color-maroon-subtle: #fbf4f5;
+  --color-maroon-border: #eed2d5;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

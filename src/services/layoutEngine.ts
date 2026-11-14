@@ -1,3 +1,6 @@
+import { getKinshipLabels } from "@/src/services/kinship";
+import { getFamilyLineGroups, FAMILY_LINE_COLOR } from "@/src/services/familyLineColors";
+import { packFamilyCouples } from "@/src/services/packFamilyCouples";
 import type { Edge, Node } from "reactflow";
 import type { FamilyData, Person, FolderDirectoryHandle } from "@/src/types/family";
 import {
@@ -5,14 +8,15 @@ import {
   getParents,
   getPartners,
   getSiblings,
-  getAncestors,
-  getDescendants,
 } from "@/src/services/familyGraph";
 
 const NODE_WIDTH = 236;
 const PARTNER_GAP = 68;
+const SIBLING_GAP = 50;
 const GROUP_GAP = 140;
-const GENERATION_GAP = 260;
+const BRANCH_GAP = 180;
+const COMPONENT_GAP = 420;
+const GENERATION_GAP = 240;
 
 /**
  * Calculates relationship badge labels relative to the focused member.
@@ -23,49 +27,7 @@ export const getRelativeRelationLabel = (
   family: FamilyData,
 ): string | undefined => {
   if (!focusPersonId || personId === focusPersonId) return undefined;
-
-  const parents = getParents(focusPersonId, family);
-  const parentMatch = parents.find((p) => p.id === personId);
-  if (parentMatch) {
-    if (parentMatch.gender === "male") return "Ayah";
-    if (parentMatch.gender === "female") return "Ibu";
-    return "Orang Tua";
-  }
-
-  const partners = getPartners(focusPersonId, family);
-  if (partners.some((p) => p.id === personId)) {
-    return "Pasangan";
-  }
-
-  const children = getChildren(focusPersonId, family);
-  const childMatch = children.find((c) => c.id === personId);
-  if (childMatch) {
-    if (childMatch.gender === "male") return "Anak (L)";
-    if (childMatch.gender === "female") return "Anak (P)";
-    return "Anak";
-  }
-
-  const siblings = getSiblings(focusPersonId, family);
-  const siblingMatch = siblings.find((s) => s.id === personId);
-  if (siblingMatch) {
-    if (siblingMatch.gender === "male") return "Saudara";
-    if (siblingMatch.gender === "female") return "Saudari";
-    return "Saudara";
-  }
-
-  const ancestors = getAncestors(focusPersonId, family);
-  const ancestorMatch = ancestors.find((a) => a.person.id === personId);
-  if (ancestorMatch) {
-    return ancestorMatch.relation;
-  }
-
-  const descendants = getDescendants(focusPersonId, family);
-  const descendantMatch = descendants.find((d) => d.person.id === personId);
-  if (descendantMatch) {
-    return descendantMatch.relation;
-  }
-
-  return undefined;
+  return getKinshipLabels(focusPersonId, family).get(personId);
 };
 
 const getAncestorSubtreeWidth = (
@@ -173,7 +135,7 @@ const layoutAncestorsRecursive = (
       type: "smoothstep",
       sourceHandle: "child-source",
       targetHandle: "parent-target",
-      style: { stroke: "#2563eb", strokeWidth: 2 },
+      style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 },
     });
   }
 
@@ -202,7 +164,7 @@ const layoutAncestorsRecursive = (
       type: "smoothstep",
       sourceHandle: "child-source",
       targetHandle: "parent-target",
-      style: { stroke: "#2563eb", strokeWidth: 2 },
+      style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 },
     });
   }
 
@@ -214,7 +176,7 @@ const layoutAncestorsRecursive = (
       type: "marriage",
       sourceHandle: "spouse-right",
       targetHandle: "spouse-left",
-      style: { stroke: "#2563eb", strokeWidth: 2.5 },
+      style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2.5 },
     });
   }
 };
@@ -292,93 +254,413 @@ const layoutDescendantsRecursive = (
       type: "smoothstep",
       sourceHandle: "child-source",
       targetHandle: "parent-target",
-      style: { stroke: "#2563eb", strokeWidth: 2 },
+      style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 },
     });
 
     startX += childWidth;
   }
 };
 
-const computeFullTreeGenerations = (family: FamilyData): Map<string, number> => {
-  const generations = new Map(family.persons.map((person) => [person.id, 0]));
-  const lineageRelationships = family.relationships.filter(
-    (relationship) => relationship.type === "parent" || relationship.type === "adoption" || relationship.type === "stepParent",
-  );
+/**
+ * Partition persons into connected family components (disconnected graphs).
+ */
+export const findConnectedComponents = (family: FamilyData): Person[][] => {
+  const neighbors = new Map<string, Set<string>>();
+  for (const p of family.persons) neighbors.set(p.id, new Set());
 
-  for (let iteration = 0; iteration < family.persons.length; iteration += 1) {
-    let changed = false;
+  for (const r of family.relationships) {
+    if (neighbors.has(r.from) && neighbors.has(r.to)) {
+      neighbors.get(r.from)!.add(r.to);
+      neighbors.get(r.to)!.add(r.from);
+    }
+  }
 
-    for (const relationship of lineageRelationships) {
-      const parentGeneration = generations.get(relationship.from) ?? 0;
-      const childGeneration = generations.get(relationship.to) ?? 0;
-      const nextChildGeneration = Math.max(childGeneration, parentGeneration + 1);
-
-      if (nextChildGeneration !== childGeneration) {
-        generations.set(relationship.to, nextChildGeneration);
-        changed = true;
+  for (const u of family.familyUnits) {
+    for (const p1 of u.partners) {
+      for (const p2 of u.partners) {
+        if (p1 !== p2 && neighbors.has(p1) && neighbors.has(p2)) {
+          neighbors.get(p1)!.add(p2);
+          neighbors.get(p2)!.add(p1);
+        }
+      }
+      for (const c of u.children) {
+        if (neighbors.has(p1) && neighbors.has(c)) {
+          neighbors.get(p1)!.add(c);
+          neighbors.get(c)!.add(p1);
+        }
       }
     }
+  }
 
-    // Partners and explicitly recorded siblings share a generation.
-    for (const relationship of family.relationships) {
-      if (relationship.type !== "marriage" && relationship.type !== "sibling") continue;
-      const generation = Math.max(generations.get(relationship.from) ?? 0, generations.get(relationship.to) ?? 0);
-      for (const id of [relationship.from, relationship.to]) {
-        if (generations.get(id) !== generation) { generations.set(id, generation); changed = true; }
+  const visited = new Set<string>();
+  const components: Person[][] = [];
+
+  for (const person of family.persons) {
+    if (visited.has(person.id)) continue;
+    const comp: Person[] = [];
+    const queue = [person.id];
+    visited.add(person.id);
+
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const p = family.persons.find((x) => x.id === id);
+      if (p) comp.push(p);
+
+      for (const neighborId of neighbors.get(id) ?? []) {
+        if (!visited.has(neighborId)) {
+          visited.add(neighborId);
+          queue.push(neighborId);
+        }
+      }
+    }
+    components.push(comp);
+  }
+
+  return components;
+};
+
+/** Keep couples and sibling groups aligned before calculating ancestry depth. */
+const computeComponentGenerations = (
+  family: FamilyData,
+  persons: Person[],
+): Map<string, number> => {
+  const group = new Map(persons.map((person) => [person.id, person.id]));
+  const find = (id: string): string => {
+    const parent = group.get(id)!;
+    if (parent === id) return id;
+    const root = find(parent);
+    group.set(id, root);
+    return root;
+  };
+  const join = (a: string, b: string) => {
+    if (group.has(a) && group.has(b)) group.set(find(b), find(a));
+  };
+  for (const relation of family.relationships) {
+    if (relation.type === "marriage" || relation.type === "sibling") join(relation.from, relation.to);
+  }
+  for (const person of persons) {
+    const children = getChildren(person.id, family).filter((child) => group.has(child.id));
+    for (const child of children.slice(1)) join(children[0].id, child.id);
+  }
+
+  const levels = new Map(persons.map((person) => [find(person.id), 0]));
+  const lineage = family.relationships.filter((relation) =>
+    group.has(relation.from) && group.has(relation.to) &&
+    (relation.type === "parent" || relation.type === "adoption" || relation.type === "stepParent"))
+    .map((relation) => ({ parent: find(relation.from), child: find(relation.to) }))
+    .filter((relation) => relation.parent !== relation.child);
+
+  // Work across all recorded generations, bounded even for cyclic imports.
+  for (let iteration = 0; iteration < levels.size; iteration += 1) {
+    let changed = false;
+    for (const { parent, child } of lineage) {
+      const next = levels.get(parent)! + 1;
+      if (levels.get(child)! < next) { levels.set(child, next); changed = true; }
+    }
+    if (!changed) break;
+  }
+
+  // A shorter ancestral family starts lower when its children marry into a
+  // deeper tree. Move the entire couple/sibling group, never one card alone.
+  const childrenByGroup = new Map<string, Set<string>>();
+  for (const { parent, child } of lineage) {
+    const children = childrenByGroup.get(parent) ?? new Set<string>();
+    children.add(child);
+    childrenByGroup.set(parent, children);
+  }
+  for (let iteration = 0; iteration < levels.size; iteration += 1) {
+    let changed = false;
+    for (const [parent, children] of childrenByGroup) {
+      const next = Math.min(...[...children].map((child) => levels.get(child)!)) - 1;
+      if (next > levels.get(parent)!) { levels.set(parent, next); changed = true; }
+    }
+    if (!changed) break;
+  }
+
+  const min = Math.min(...levels.values());
+  return new Map(persons.map((person) => [person.id, levels.get(find(person.id))! - min]));
+};
+
+/**
+ * Keep ancestral families in separate lanes at every generation. Marriage links
+ * lanes; it does not merge their sibling rows. Children of both lanes are placed
+ * below the connecting couple rather than appended to either family's siblings.
+ */
+const layoutComponent = (
+  compPersons: Person[],
+  family: FamilyData,
+): Map<string, { x: number; y: number }> => {
+  const pos = new Map<string, { x: number; y: number }>();
+  if (compPersons.length === 0) return pos;
+
+  const ids = new Set(compPersons.map((person) => person.id));
+  const parents = new Map(compPersons.map((person) => [person.id,
+    getParents(person.id, family).filter((parent) => ids.has(parent.id)).map((parent) => parent.id),
+  ]));
+  const partners = new Map(compPersons.map((person) => [person.id,
+    getPartners(person.id, family).filter((partner) => ids.has(partner.id)).map((partner) => partner.id),
+  ]));
+  const generations = computeComponentGenerations(family, compPersons);
+  const origins = new Map(compPersons.map((person) => [person.id, new Set<string>()]));
+  // Resolve the whole spouse group before seeding an ancestral origin. With
+  // spouse A — shared partner — spouse B, adding parents to A also anchors B.
+  // Checking only direct spouses incorrectly gives B a new founding lane.
+  const foundingIds = new Set<string>();
+  const checkedPartners = new Set<string>();
+  for (const person of compPersons) {
+    if (checkedPartners.has(person.id)) continue;
+    const coupleGroup = [person.id];
+    checkedPartners.add(person.id);
+    for (let index = 0; index < coupleGroup.length; index += 1) {
+      for (const partner of partners.get(coupleGroup[index])!) {
+        if (!checkedPartners.has(partner)) {
+          checkedPartners.add(partner);
+          coupleGroup.push(partner);
+        }
+      }
+    }
+    if (coupleGroup.every((id) => parents.get(id)!.length === 0)) {
+      for (const id of coupleGroup) foundingIds.add(id);
+    }
+  }
+  const roots = compPersons.filter((person) => foundingIds.has(person.id));
+  const rootIds = new Set(roots.map((person) => person.id));
+
+  // Founding couples and explicitly recorded root siblings share one origin.
+  for (const root of roots) {
+    if (origins.get(root.id)!.size > 0) continue;
+    const queue = [root.id];
+    origins.get(root.id)!.add(root.id);
+    for (let index = 0; index < queue.length; index += 1) {
+      const id = queue[index];
+      const neighbors = [...partners.get(id)!, ...getSiblings(id, family).map((person) => person.id)];
+      for (const neighbor of neighbors) {
+        if (rootIds.has(neighbor) && origins.get(neighbor)!.size === 0) {
+          origins.get(neighbor)!.add(root.id);
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+
+  for (let iteration = 0; iteration < compPersons.length; iteration += 1) {
+    let changed = false;
+    for (const person of compPersons) {
+      const parentIds = parents.get(person.id)!;
+      const sources = parentIds.length > 0 ? parentIds : partners.get(person.id)!;
+      // A root with its own ancestry lane keeps it when it marries another root.
+      if (rootIds.has(person.id)) continue;
+      const own = origins.get(person.id)!;
+      for (const source of sources) {
+        for (const origin of origins.get(source)!) {
+          if (!own.has(origin)) { own.add(origin); changed = true; }
+        }
       }
     }
     if (!changed) break;
   }
 
-  return generations;
-};
-
-const getFullTreePartnerGroups = (
-  family: FamilyData,
-  generation: number,
-  generations: Map<string, number>,
-) => {
-  const generationPersonIds = new Set(
-    family.persons
-      .filter((person) => (generations.get(person.id) ?? 0) === generation)
-      .map((person) => person.id),
-  );
-  const used = new Set<string>();
-  const groups: string[][] = [];
-  const neighbors = new Map([...generationPersonIds].map((id) => [id, new Set<string>()]));
-  const connect = (a: string, b: string) => {
-    if (neighbors.has(a) && neighbors.has(b)) { neighbors.get(a)!.add(b); neighbors.get(b)!.add(a); }
-  };
-  for (const rel of family.relationships) if (rel.type === "marriage") connect(rel.from, rel.to);
-  for (const unit of family.familyUnits) for (const a of unit.partners) for (const b of unit.partners) if (a !== b) connect(a, b);
-  for (const personId of generationPersonIds) {
-    if (used.has(personId)) continue;
-    const component: string[] = [];
-    const queue = [personId];
-    const discovered = new Set(queue);
-    while (queue.length) {
-      const id = queue.shift()!;
-      component.push(id);
-      for (const other of neighbors.get(id) ?? []) if (!discovered.has(other)) { discovered.add(other); queue.push(other); }
+  interface Branch {
+    origins: Set<string>;
+    rows: Map<number, string[]>;
+    width: number;
+    left: number;
+  }
+  const branches = new Map<string, Branch>();
+  const branchByPerson = new Map<string, Branch>();
+  for (const person of compPersons) {
+    const own = origins.get(person.id)!;
+    if (own.size === 0) own.add(person.id); // Isolated or cyclic imported data.
+    const key = JSON.stringify([...own].sort());
+    let branch = branches.get(key);
+    if (!branch) {
+      branch = { origins: own, rows: new Map(), width: NODE_WIDTH, left: 0 };
+      branches.set(key, branch);
     }
-    // Put a partner with one connection at the end of a multi-partner row.
-    const first = component.find((id) => neighbors.get(id)!.size <= 1) ?? personId;
-    const ordered: string[] = [];
-    const visit = (id: string) => {
-      if (used.has(id)) return;
-      used.add(id); ordered.push(id);
-      for (const other of neighbors.get(id) ?? []) visit(other);
-    };
-    visit(first);
-    groups.push(ordered);
+    const generation = generations.get(person.id)!;
+    const row = branch.rows.get(generation) ?? [];
+    row.push(person.id);
+    branch.rows.set(generation, row);
+    branchByPerson.set(person.id, branch);
   }
 
-  return groups;
+  const lanes = [...branches.values()].filter((branch) => branch.origins.size === 1);
+  // Keep families joined by marriage next to each other, independent of file order.
+  for (let index = 0; index < lanes.length - 1; index += 1) {
+    const connected = lanes.findIndex((candidate, otherIndex) => otherIndex > index &&
+      compPersons.some((person) => branchByPerson.get(person.id) === lanes[index] &&
+        partners.get(person.id)!.some((id) => branchByPerson.get(id) === candidate)));
+    if (connected > index + 1) lanes.splice(index + 1, 0, lanes.splice(connected, 1)[0]);
+  }
+  const laneIndex = new Map(lanes.map((branch, index) => [branch, index]));
+  const sameSiblingGroup = (a: string, b: string) => {
+    const aParents = parents.get(a)!;
+    const bParents = parents.get(b)!;
+    if (aParents.length > 0 || bParents.length > 0) {
+      return aParents.length === bParents.length && aParents.every((id) => bParents.includes(id));
+    }
+    return getSiblings(a, family).some((person) => person.id === b);
+  };
+  const gap = (a: string, b: string) => partners.get(a)!.includes(b) ? PARTNER_GAP :
+    sameSiblingGroup(a, b) ? SIBLING_GAP : GROUP_GAP;
+  const rowWidth = (row: string[]) => row.reduce((width, id, index) =>
+    width + NODE_WIDTH + (index > 0 ? gap(row[index - 1], id) : 0), 0);
+
+  // A spouse connecting two families faces the other lane. The remaining
+  // siblings stay together, retaining their original order within the block.
+  for (const branch of branches.values()) {
+    const facing = (id: string) => {
+      const ownIndex = laneIndex.get(branch);
+      if (ownIndex === undefined) return 0;
+      for (const partner of partners.get(id)!) {
+        const other = laneIndex.get(branchByPerson.get(partner)!);
+        if (other !== undefined && other !== ownIndex) return other < ownIndex ? -1 : 1;
+      }
+      return 0;
+    };
+    for (const [generation, row] of [...branch.rows].sort(([a], [b]) => a - b)) {
+      const remaining = new Set(row);
+      const blocks: string[][] = [];
+      for (const id of row) {
+        if (!remaining.delete(id)) continue;
+        const block = [id];
+        for (let index = 0; index < block.length; index += 1) {
+          const neighbors = [...partners.get(block[index])!,
+            ...row.filter((id) => sameSiblingGroup(block[index], id))];
+          for (const neighbor of neighbors) {
+            if (remaining.delete(neighbor)) block.push(neighbor);
+          }
+        }
+        blocks.push(block);
+      }
+      const blockFacing = (block: string[]) => block.reduce((sum, id) => sum + facing(id), 0);
+      const parentRow = branch.rows.get(generation - 1) ?? [];
+      const parentOrder = (block: string[]) => {
+        const indices = [...new Set(block.flatMap((id) => parents.get(id)!))]
+          .map((id) => parentRow.indexOf(id)).filter((index) => index >= 0);
+        return indices.length > 0 ? indices.reduce((sum, index) => sum + index, 0) / indices.length : 0;
+      };
+      blocks.sort((a, b) => parentOrder(a) - parentOrder(b) || blockFacing(a) - blockFacing(b));
+      row.splice(0, row.length, ...blocks.flatMap((block) => {
+        block.sort((a, b) => facing(a) - facing(b));
+        // A two-spouse family is a path: spouse — shared partner — spouse.
+        // Starting at the shared partner would put a spouse across another
+        // marriage line, and put the child junction inside that spouse's card.
+        const ordered: string[] = [];
+        const pending = new Set(block);
+        for (const id of block) {
+          if (!pending.has(id)) continue;
+          const component = [id];
+          const seen = new Set([id]);
+          for (let index = 0; index < component.length; index += 1) {
+            for (const partner of partners.get(component[index])!) {
+              if (pending.has(partner) && !seen.has(partner)) {
+                seen.add(partner);
+                component.push(partner);
+              }
+            }
+          }
+          const adjacent = (personId: string) => partners.get(personId)!.filter((partner) => seen.has(partner));
+          const endpoint = component.find((personId) => adjacent(personId).length <= 1);
+          if (endpoint && component.every((personId) => adjacent(personId).length <= 2)) {
+            let current: string | undefined = endpoint;
+            while (current) {
+              ordered.push(current);
+              pending.delete(current);
+              current = adjacent(current).find((partner) => pending.has(partner));
+            }
+          } else {
+            for (const personId of component) { ordered.push(personId); pending.delete(personId); }
+          }
+        }
+        return ordered;
+      }));
+      branch.width = Math.max(branch.width, rowWidth(row));
+    }
+    const extraPartners = Math.max(0, ...[...branch.rows.values()].flatMap((row) =>
+      row.map((id) => partners.get(id)!.filter((partner) => row.includes(partner)).length - 1)));
+    branch.width += extraPartners * (NODE_WIDTH + PARTNER_GAP);
+  }
+
+  let left = 0;
+  for (const lane of lanes) {
+    lane.left = left;
+    left += lane.width + BRANCH_GAP;
+  }
+
+  const placeRow = (row: string[], generation: number, start: number) => {
+    let x = start;
+    row.forEach((id, index) => {
+      if (index > 0) x += gap(row[index - 1], id);
+      pos.set(id, { x, y: generation * GENERATION_GAP });
+      x += NODE_WIDTH;
+    });
+  };
+  for (const lane of lanes) {
+    for (const [generation, row] of [...lane.rows].sort(([a], [b]) => a - b)) {
+      const parentPositions = [...new Set(row.flatMap((id) => parents.get(id)!))]
+        .map((id) => pos.get(id)).filter((position) => position !== undefined);
+      const width = rowWidth(row);
+      const center = parentPositions.length > 0
+        ? parentPositions.reduce((sum, position) => sum + position.x + NODE_WIDTH / 2, 0) / parentPositions.length
+        : lane.left + lane.width / 2;
+      placeRow(row, generation, Math.max(lane.left, Math.min(lane.left + lane.width - width, center - width / 2)));
+    }
+  }
+
+  // Shared descendants belong under the joining couple. Reserve each whole
+  // sibling row as a block so collision handling cannot scatter its members.
+  const shared = [...branches.values()].filter((branch) => branch.origins.size > 1);
+  const maxGeneration = Math.max(...generations.values());
+  for (let generation = 0; generation <= maxGeneration; generation += 1) {
+    for (const branch of shared) {
+      const row = branch.rows.get(generation);
+      if (!row) continue;
+      const parentPositions = [...new Set(row.flatMap((id) => parents.get(id)!))]
+        .map((id) => pos.get(id)).filter((position) => position !== undefined);
+      const center = parentPositions.length > 0
+        ? parentPositions.reduce((sum, position) => sum + position.x + NODE_WIDTH / 2, 0) / parentPositions.length
+        : left / 2;
+      const width = rowWidth(row);
+      const desired = center - width / 2;
+      const occupied = [...pos.values()].filter((position) => position.y === generation * GENERATION_GAP)
+        .map((position) => ({ left: position.x - GROUP_GAP, right: position.x + NODE_WIDTH + GROUP_GAP }));
+      const candidates = [desired, ...occupied.flatMap((span) => [span.left - width, span.right])];
+      const available = candidates.filter((candidate) => occupied.every((span) =>
+        candidate + width <= span.left || candidate >= span.right));
+      const start = available.sort((a, b) => Math.abs(a - desired) - Math.abs(b - desired))[0] ?? desired;
+      placeRow(row, generation, start);
+    }
+  }
+
+  // Center smaller ancestor rows over their own children inside the same lane.
+  for (let generation = maxGeneration - 1; generation >= 0; generation -= 1) {
+    for (const lane of lanes) {
+      const row = lane.rows.get(generation);
+      if (!row) continue;
+      const children = [...new Set(row.flatMap((id) => getChildren(id, family).map((person) => person.id)))]
+        .filter((id) => branchByPerson.get(id) === lane && pos.has(id));
+      if (children.length === 0) continue;
+      const center = (Math.min(...children.map((id) => pos.get(id)!.x)) +
+        Math.max(...children.map((id) => pos.get(id)!.x + NODE_WIDTH))) / 2;
+      const contributingParents = row.filter((id) => getChildren(id, family)
+        .some((child) => branchByPerson.get(child.id) === lane));
+      const parentCenter = contributingParents.reduce((sum, id) => sum + pos.get(id)!.x + NODE_WIDTH / 2, 0) / contributingParents.length;
+      const width = rowWidth(row);
+      const desired = pos.get(row[0])!.x + center - parentCenter;
+      placeRow(row, generation, Math.max(lane.left, Math.min(lane.left + lane.width - width, desired)));
+    }
+  }
+
+  const minX = Math.min(...[...pos.values()].map((position) => position.x));
+  for (const position of pos.values()) position.x -= minX;
+  return pos;
 };
 
-const groupWidth = (group: string[]) =>
-  group.length * NODE_WIDTH + Math.max(0, group.length - 1) * PARTNER_GAP;
-
+/**
+ * Builds ReactFlow nodes across all family components with generous spatial separation
+ * and tidy vertical drops.
+ */
 const buildFullTreeNodes = (
   family: FamilyData,
   focusPersonId: string | null,
@@ -387,66 +669,60 @@ const buildFullTreeNodes = (
   onFocus?: (id: string) => void,
   dirHandle?: FolderDirectoryHandle,
 ): Node[] => {
-  const generations = computeFullTreeGenerations(family);
-  const maxGeneration = Math.max(0, ...Array.from(generations.values()));
+  const components = findConnectedComponents(family);
+  if (components.length === 0) return [];
+
   const personById = new Map(family.persons.map((person) => [person.id, person]));
   const nodes: Node[] = [];
+  const compLayouts: { pos: Map<string, { x: number; y: number }>; width: number }[] = [];
 
-  for (let generation = 0; generation <= maxGeneration; generation += 1) {
-    const groups = getFullTreePartnerGroups(family, generation, generations);
-    const parentCenter = (id: string) => {
-      const parents = getParents(id, family).map((parent) => nodes.find((node) => node.id === parent.id)).filter((node): node is Node => Boolean(node));
-      return parents.length ? parents.reduce((sum, node) => sum + node.position.x, 0) / parents.length : undefined;
-    };
-    const groupCenter = (group: string[]) => {
-      const centers = group.map(parentCenter).filter((value): value is number => value !== undefined);
-      return centers.length ? centers.reduce((sum, value) => sum + value, 0) / centers.length : 0;
-    };
-    if (generation > 0) {
-      groups.sort((a, b) => groupCenter(a) - groupCenter(b));
-      for (const group of groups) {
-        const anchors = group.map(parentCenter).filter((value): value is number => value !== undefined);
-        if (anchors.length > 1 && anchors[0] > anchors[anchors.length - 1]) group.reverse();
-      }
+  // Compute layout for each independent family component
+  for (const comp of components) {
+    const compPos = packFamilyCouples(family, layoutComponent(comp, family), {
+      nodeWidth: NODE_WIDTH, partnerGap: PARTNER_GAP, siblingGap: SIBLING_GAP, groupGap: GROUP_GAP,
+    });
+    const compWidths = Array.from(compPos.values()).map((p) => p.x + NODE_WIDTH);
+    const width = Math.max(NODE_WIDTH, ...compWidths);
+    compLayouts.push({ pos: compPos, width });
+  }
+
+  // Arrange components side-by-side with clear COMPONENT_GAP
+  const totalTreeWidth =
+    compLayouts.reduce((sum, c) => sum + c.width, 0) +
+    Math.max(0, compLayouts.length - 1) * COMPONENT_GAP;
+
+  let compOffsetX = -totalTreeWidth / 2;
+
+  for (const { pos } of compLayouts) {
+    for (const [pid, coord] of pos.entries()) {
+      const person = personById.get(pid);
+      if (!person) continue;
+
+      const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family);
+
+      nodes.push({
+        id: person.id,
+        type: "person",
+        position: {
+          x: coord.x + compOffsetX,
+          y: coord.y,
+        },
+        data: {
+          person,
+          onEdit,
+          onSelect,
+          onFocus,
+          dirHandle,
+          relationLabel,
+          isFocus: person.id === focusPersonId,
+        },
+      });
     }
-    const totalWidth =
-      groups.reduce((sum, group) => sum + groupWidth(group), 0) +
-      Math.max(0, groups.length - 1) * GROUP_GAP;
-    let cursorX = -totalWidth / 2;
 
-    for (const group of groups) {
-      for (const personId of group) {
-        const person = personById.get(personId);
-
-        if (!person) {
-          continue;
-        }
-
-        const relationLabel = getRelativeRelationLabel(person.id, focusPersonId, family);
-
-        nodes.push({
-          id: person.id,
-          type: "person",
-          position: {
-            x: cursorX,
-            y: generation * GENERATION_GAP,
-          },
-          data: {
-            person,
-            onEdit,
-            onSelect,
-            onFocus,
-            dirHandle,
-            relationLabel,
-            isFocus: person.id === focusPersonId,
-          },
-        });
-
-        cursorX += NODE_WIDTH + PARTNER_GAP;
-      }
-
-      cursorX += GROUP_GAP - PARTNER_GAP;
-    }
+    const currentCompWidth = Math.max(
+      ...Array.from(pos.values()).map((p) => p.x + NODE_WIDTH),
+    );
+    compOffsetX += currentCompWidth + COMPONENT_GAP;
   }
 
   return nodes;
@@ -457,11 +733,11 @@ const buildFullTreeEdges = (family: FamilyData): Edge[] =>
     const isMarriage = relationship.type === "marriage";
     const isAdoption = relationship.type === "adoption";
 
-    let style = { stroke: "#2563eb", strokeWidth: 2 };
+    let style = { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 };
     if (isMarriage) {
-      style = { stroke: "#2563eb", strokeWidth: 2.5 };
+      style = { stroke: FAMILY_LINE_COLOR, strokeWidth: 2.5 };
     } else if (isAdoption) {
-      style = { stroke: "#2563eb", strokeWidth: 2 };
+      style = { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 };
     }
 
     return {
@@ -629,7 +905,7 @@ export const getTreeLayout = (
         type: "smoothstep",
         sourceHandle: "child-source",
         targetHandle: "parent-target",
-        style: { stroke: "#2563eb", strokeWidth: 2 },
+        style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 },
       });
     }
 
@@ -657,7 +933,7 @@ export const getTreeLayout = (
         type: "smoothstep",
         sourceHandle: "child-source",
         targetHandle: "parent-target",
-        style: { stroke: "#2563eb", strokeWidth: 2 },
+        style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2 },
       });
     }
 
@@ -669,7 +945,7 @@ export const getTreeLayout = (
         type: "marriage",
         sourceHandle: "spouse-right",
         targetHandle: "spouse-left",
-        style: { stroke: "#2563eb", strokeWidth: 2.5 },
+        style: { stroke: FAMILY_LINE_COLOR, strokeWidth: 2.5 },
       });
     }
 
@@ -716,8 +992,18 @@ export function routeFamilyConnections(layout: { nodes: Node[]; edges: Edge[] },
   const nodes = [...layout.nodes];
   const nodeById = new Map(nodes.map((node) => [node.id, node]));
   const relationships = new Map(family.relationships.map((rel) => [rel.id, rel]));
-  const edges = layout.edges.map((edge) => {
-    const rel = relationships.get(edge.id);
+  const { groups, relationshipGroups } = getFamilyLineGroups(family);
+  const edges = layout.edges.map((original) => {
+    const rel = relationships.get(original.id) ?? family.relationships.find((relation) =>
+      original.type === "marriage" ? relation.type === "marriage" &&
+        ((relation.from === original.source && relation.to === original.target) || (relation.from === original.target && relation.to === original.source)) :
+        relation.type !== "marriage" && relation.from === original.source && relation.to === original.target);
+    if (rel) relationships.set(original.id, rel);
+    const group = relationshipGroups.get(rel?.id ?? original.id) ?? (original.type === "marriage" ?
+      groups.find((candidate) => candidate.id === JSON.stringify([original.source, original.target].sort())) : undefined);
+    const edge = group ? { ...original, style: { ...original.style, stroke: group.color },
+      data: { ...original.data, relationshipType: rel?.type ?? (original.type === "marriage" ? "marriage" : undefined),
+        familyGroupId: group.id, familyLabel: group.label, familyColor: group.color } } : original;
     const marriage = rel?.type === "marriage" || edge.type === "marriage";
     if (rel?.type === "sibling") return { ...edge, sourceHandle: "sibling-source", targetHandle: "sibling-target", data: { ...edge.data, relationshipType: "sibling" } };
     if (!marriage) return edge;
@@ -747,7 +1033,7 @@ export function routeFamilyConnections(layout: { nodes: Node[]; edges: Edge[] },
       nodes.push(junction); nodeById.set(junctionId, junction);
     }
     removed.add(a.id); removed.add(b.id);
-    added.push({ ...a, id: `lineage:${a.id}:${b.id}`, source: junctionId, sourceHandle: "children", data: { relationshipType: relA.type }, type: "smoothstep" });
+    added.push({ ...a, id: `lineage:${a.id}:${b.id}`, source: junctionId, sourceHandle: "children", data: { ...a.data, relationshipType: relA.type }, type: "smoothstep" });
   }
   return { nodes, edges: [...edges.filter((edge) => !removed.has(edge.id)), ...added] };
 }

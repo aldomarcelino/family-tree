@@ -1,16 +1,20 @@
 {
-  "name": "family-tree",
+  "name": "markoum",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --port 4269",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:layout": "node --test scripts/test-layout.mjs",
+    "test:relationships": "node --test scripts/test-relationships.mjs",
+    "test:focus": "node --test scripts/test-focus.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "date-fns": "^4.4.0",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.24.0",
     "nanoid": "^5.1.16",
     "next": "16.2.10",

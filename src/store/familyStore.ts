@@ -3,7 +3,6 @@
 import { personSchema } from "@/src/schema/family";
 import { nanoid } from "nanoid";
 import { create } from "zustand";
-import { sampleFamily } from "@/src/data/sampleFamily";
 import type {
   FamilyData,
   FamilyUnit,
@@ -11,6 +10,17 @@ import type {
   PersonInput,
   Relationship,
 } from "@/src/types/family";
+
+export const createEmptyFamily = (name = "Silsilah Keluarga"): FamilyData => ({
+  schemaVersion: 1,
+  name,
+  persons: [],
+  relationships: [],
+  familyUnits: [],
+  media: [],
+  events: [],
+  updatedAt: new Date().toISOString(),
+});
 
 const withUpdatedAt = (family: FamilyData): FamilyData => ({
   ...family,
@@ -55,7 +65,7 @@ interface FamilyStore {
 }
 
 export const useFamilyStore = create<FamilyStore>((set) => ({
-  family: sampleFamily,
+  family: createEmptyFamily(),
   past: [],
   future: [],
   loadFamily: (family) =>
@@ -308,18 +318,9 @@ export const useFamilyStore = create<FamilyStore>((set) => ({
 
     return familyUnit;
   },
-  resetFamily: (name = "New Family Tree") => {
+  resetFamily: (name = "Silsilah Keluarga") => {
     set(() => ({
-      family: withUpdatedAt({
-        schemaVersion: 1,
-        name,
-        persons: [],
-        relationships: [],
-        familyUnits: [],
-        media: [],
-        events: [],
-        updatedAt: new Date().toISOString(),
-      }),
+      family: withUpdatedAt(createEmptyFamily(name)),
       past: [],
       future: [],
     }));

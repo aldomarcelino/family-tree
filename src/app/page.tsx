@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import Image from "next/image";
+import markoumLogo from "@/public/assets/logos/logo.webp";
 import { PanelLeftOpen, Check, Circle, CheckCircle2, CircleAlert, Info, X } from "lucide-react";
 import { EmptyFamilyState } from "@/src/components/FamilyCanvas/EmptyFamilyState";
 import { FamilyTree } from "@/src/components/FamilyCanvas/FamilyTree";
@@ -10,6 +12,7 @@ import { RelationshipModal } from "@/src/components/Person/RelationshipModal";
 import { PersonDetailPanel } from "@/src/components/UI/PersonDetailPanel";
 import { AppSidebar } from "@/src/components/Layout/Sidebar/AppSidebar";
 import { DeletePersonModal } from "@/src/components/Modals/DeletePersonModal";
+import { NewTreeModal } from "@/src/components/Modals/NewTreeModal";
 import { IntegrityWarningModal } from "@/src/components/Modals/IntegrityWarningModal";
 import {
   exportFamily,
@@ -22,6 +25,7 @@ import {
 import { FIELD_LIMITS } from "@/src/schema/fieldLimits";
 import { getFamilySnapshot, getSaveStatus, getSaveErrorMessage } from "@/src/services/saveState";
 import { addImage } from "@/src/services/mediaStorage";
+import { getAncestors } from "@/src/services/familyGraph";
 import { getTreeLayout } from "@/src/services/layoutEngine";
 import { useFamilyStore } from "@/src/store/familyStore";
 import { validateFamilyData } from "@/src/schema/family";
@@ -45,7 +49,7 @@ export default function Home() {
   const setFamily = useFamilyStore((state) => state.setFamily);
 
   // File & Folder Handles
-  const [fileName, setFileName] = useState<string>("sampleFamily.json");
+  const [fileName, setFileName] = useState<string>("silsilah-keluarga.json");
   const [fileHandle, setFileHandle] = useState<WritableFamilyFileHandle | null>(null);
   const [dirHandle, setDirHandle] = useState<FolderDirectoryHandle | null>(null);
   const familySnapshot = useMemo(() => getFamilySnapshot(family), [family]);
@@ -55,12 +59,15 @@ export default function Home() {
   const [localSaveError, setLocalSaveError] = useState(false);
   const [fileSaveError, setFileSaveError] = useState(false);
   const savingFileRef = useRef(false);
+  const handleSaveFileRef = useRef<() => void>(() => {});
   const [hasRestored, setHasRestored] = useState(false);
   const saveStatus = getSaveStatus({ saving: isSavingFile, error: localSaveError || fileSaveError, current: familySnapshot, local: localSnapshot, external: savedFileSnapshot, hasExternalDestination: Boolean(fileHandle || dirHandle) });
 
   // Navigation & Layout View Mode States
   const [viewMode, setViewMode] = useState<"full" | "ancestor" | "descendant" | "branch">("full");
   const [focusPersonId, setFocusPersonId] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  const [arrangeRequest, setArrangeRequest] = useState(0);
 
   // Canvas Mode States
   const [layoutMode, setLayoutMode] = useState<"auto" | "manual">("auto");
@@ -78,6 +85,7 @@ export default function Home() {
   const [relModalInitialPersonId, setRelModalInitialPersonId] = useState<string | undefined>(undefined);
   const [relModalInitialSecondPersonId, setRelModalInitialSecondPersonId] = useState<string | undefined>(undefined);
   const [relModalInitialRole, setRelModalInitialRole] = useState<"parent" | "spouse" | "child" | "sibling" | undefined>(undefined);
+  const [isNewTreeModalOpen, setIsNewTreeModalOpen] = useState(false);
 
   // Validation & Integrity Warnings
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
@@ -95,12 +103,23 @@ export default function Home() {
   // Restore the saved family before writing the initial render back to storage.
   useEffect(() => {
     try {
-      const saved = localStorage.getItem("kinflow_persisted_family");
+      const saved =
+        localStorage.getItem("markoum_persisted_family_v1") ||
+        localStorage.getItem("tarombo_persisted_family_v1") ||
+        localStorage.getItem("kinflow_persisted_family_v5");
       if (!saved) return;
       const parsed = JSON.parse(saved);
-      if (parsed && Array.isArray(parsed.persons)) {
+      if (
+        parsed &&
+        Array.isArray(parsed.persons) &&
+        parsed.name !== "Hart-Reyes Family Tree" &&
+        parsed.name !== "Keluarga Pulungan - Lubis"
+      ) {
         loadFamilyAction(parsed);
-        const savedName = localStorage.getItem("kinflow_persisted_filename");
+        const savedName =
+          localStorage.getItem("markoum_persisted_filename") ||
+          localStorage.getItem("tarombo_persisted_filename") ||
+          localStorage.getItem("kinflow_persisted_filename");
         if (savedName) setFileName(savedName);
         setLocalSnapshot(getFamilySnapshot(parsed));
       }
@@ -115,7 +134,7 @@ export default function Home() {
   useEffect(() => {
     if (!hasRestored) return;
     try {
-      localStorage.setItem("kinflow_persisted_family", JSON.stringify(family));
+      localStorage.setItem("markoum_persisted_family_v1", JSON.stringify(family));
       setLocalSnapshot(familySnapshot);
       setLocalSaveError(false);
     } catch {
@@ -125,7 +144,7 @@ export default function Home() {
 
   useEffect(() => {
     if (hasRestored && fileName) {
-      try { localStorage.setItem("kinflow_persisted_filename", fileName); }
+      try { localStorage.setItem("markoum_persisted_filename", fileName); }
       catch { setLocalSaveError(true); }
     }
   }, [fileName, hasRestored]);
@@ -149,25 +168,30 @@ export default function Home() {
   }, []);
   useEffect(() => () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); }, []);
 
-  // Set initial focus person if none set and members exist
-  useEffect(() => {
-    if (!focusPersonId && family.persons.length > 0) {
-      setFocusPersonId(family.persons[0].id);
-    }
-  }, [family.persons, focusPersonId]);
-
-  // Select person handler: immediately selects AND sets as tree center/focus!
-  const handleSelectPerson = (p: Person) => {
-    setSelectedDetailPerson(p);
-    setFocusPersonId(p.id);
+  const handleOpenPersonDetails = (person: Person) => {
+    setSelectedDetailPerson(person);
   };
 
-  // Keyboard shortcut listeners for Undo / Redo
+  const handleFocusPerson = (id: string) => {
+    if (focusPersonId === id) {
+      setFocusPersonId(null);
+      return;
+    }
+    if (!family.persons.some((person) => person.id === id)) return;
+    const ancestors = new Set(getAncestors(id, family, family.persons.length).map(({ person }) => person.id));
+    setCollapsedPersonIds((current) => new Set([...current].filter((personId) => !ancestors.has(personId))));
+    setFocusPersonId(id);
+    setSelectedDetailPerson(null);
+    setFocusRequest((request) => request + 1);
+  };
+
+  // Keyboard shortcut listeners for Undo / Redo / Save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (target.isContentEditable || target.closest("input, textarea, select, dialog")) return;
       const isZ = e.key.toLowerCase() === "z";
+      const isS = e.key.toLowerCase() === "s";
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
       if (isCtrlOrCmd && isZ) {
@@ -179,6 +203,9 @@ export default function Home() {
           useFamilyStore.getState().undo();
           showFeedback("Perubahan tata letak dibatalkan (Undo).", "info");
         }
+      } else if (isCtrlOrCmd && isS) {
+        e.preventDefault();
+        handleSaveFileRef.current();
       }
     };
 
@@ -200,9 +227,7 @@ export default function Home() {
       setFileSaveError(false);
       setLayoutMode("auto");
       setCollapsedPersonIds(new Set());
-      if (loaded.family.persons.length > 0) {
-        setFocusPersonId(loaded.family.persons[0].id);
-      }
+      setFocusPersonId(null);
       showFeedback(`Berhasil memuat berkas "${loaded.fileName}"`);
     } catch (error) {
       showFeedback(error instanceof Error ? error.message : "Gagal memuat berkas.", "error");
@@ -228,9 +253,7 @@ export default function Home() {
       setFileSaveError(false);
       setLayoutMode("auto");
       setCollapsedPersonIds(new Set());
-      if (familyData.persons.length > 0) {
-        setFocusPersonId(familyData.persons[0].id);
-      }
+      setFocusPersonId(null);
       showFeedback(`Berhasil membuka folder "${handle.name}"`);
     } catch (error) {
       showFeedback(
@@ -284,22 +307,25 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    handleSaveFileRef.current = handleSaveFile;
+  });
+
   const handleNewTree = () => {
-    if (
-      confirm(
-        "Apakah Anda yakin ingin memulai pohon keluarga baru? Perubahan yang belum disimpan akan hilang."
-      )
-    ) {
-      resetFamily("Pohon Keluarga Baru");
-      setFileName("untitled-family.json");
-      setFileHandle(null);
-      setDirHandle(null);
-      setFocusPersonId(null);
-      setSelectedDetailPerson(null);
-      setLayoutMode("auto");
-      setCollapsedPersonIds(new Set());
-      showFeedback("Memulai silsilah keluarga baru yang bersih.", "info");
-    }
+    setIsNewTreeModalOpen(true);
+  };
+
+  const confirmNewTree = () => {
+    setIsNewTreeModalOpen(false);
+    resetFamily("Silsilah Keluarga");
+    setFileName("silsilah-keluarga.json");
+    setFileHandle(null);
+    setDirHandle(null);
+    setFocusPersonId(null);
+    setSelectedDetailPerson(null);
+    setLayoutMode("auto");
+    setCollapsedPersonIds(new Set());
+    showFeedback("Memulai silsilah keluarga baru yang bersih.", "info");
   };
 
   const handleExportBackup = () => {
@@ -323,9 +349,6 @@ export default function Home() {
         showFeedback(`Perubahan data ${input.fullName} berhasil disimpan.`);
       } else {
         const newP = addPerson({ ...input, primaryPhotoId: finalPhotoId });
-        if (!focusPersonId) {
-          setFocusPersonId(newP.id);
-        }
         showFeedback(`${newP.fullName} ditambahkan ke silsilah.`);
       }
       setIsPersonModalOpen(false);
@@ -346,7 +369,7 @@ export default function Home() {
     const { id, fullName } = pendingDeletePerson;
     deletePerson(id);
     if (focusPersonId === id) {
-      setFocusPersonId(family.persons.find((person) => person.id !== id)?.id ?? null);
+      setFocusPersonId(null);
     }
     if (selectedDetailPerson?.id === id) setSelectedDetailPerson(null);
     if (selectedPerson?.id === id) {
@@ -427,13 +450,13 @@ export default function Home() {
   const handleAutoArrange = () => {
     const { nodes } = getTreeLayout(
       family,
-      viewMode,
+      "full",
       focusPersonId,
       (p) => {
         setSelectedPerson(p);
         setIsPersonModalOpen(true);
       },
-      handleSelectPerson,
+      handleOpenPersonDetails,
       (id) => setFocusPersonId(id),
       dirHandle || undefined,
       new Set(),
@@ -444,11 +467,12 @@ export default function Home() {
 
     const positions: Record<string, { x: number; y: number }> = {};
     nodes.forEach((n) => {
-      positions[n.id] = { x: n.position.x, y: n.position.y };
+      if (n.type === "person") positions[n.id] = { x: n.position.x, y: n.position.y };
     });
 
     setLayoutPositions(positions);
     setLayoutMode("manual");
+    setArrangeRequest((request) => request + 1);
     showFeedback("Tata letak silsilah dirapikan secara otomatis.", "info");
   };
 
@@ -474,7 +498,7 @@ export default function Home() {
         relationships={family.relationships}
         selectedDetailPersonId={selectedDetailPerson?.id || null}
         focusPersonId={focusPersonId}
-        onSelectPerson={handleSelectPerson}
+        onSelectPerson={handleOpenPersonDetails}
         onAddMember={() => {
           setSelectedPerson(null);
           setIsPersonModalOpen(true);
@@ -482,14 +506,16 @@ export default function Home() {
         validationErrors={validationErrors}
         onShowValidationErrors={() => setShowValidationOverlay(true)}
         fileName={fileName}
-        saveStatus={saveStatus}
+        dirHandle={dirHandle}
+        fileHandle={fileHandle}
         viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onFocusPersonChange={(id) => {
-          setFocusPersonId(id);
-          showFeedback("Fokus silsilah dialihkan.");
+        onViewModeChange={(mode) => {
+          setViewMode(mode);
+          if (mode !== "full" && !focusPersonId && family.persons.length > 0) {
+            setFocusPersonId(family.persons[0].id);
+          }
         }}
-        onSaveFile={handleSaveFile}
+        onFocusPersonChange={handleFocusPerson}
         onLoadFile={handleLoadFile}
         onLoadDirectory={handleLoadDirectory}
         onNewTree={handleNewTree}
@@ -497,19 +523,42 @@ export default function Home() {
       />
 
       {/* Main Content Area (Full-bleed Canvas, NO top header bar) */}
-      <main className="workspace-main flex flex-1 flex-col relative w-full h-full min-w-0 overflow-hidden">
-        <header className="board-header">
-          <div className="flex min-w-0 items-center gap-4">
-            {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} aria-label="Buka panel samping" title="Buka panel samping" className="dock-button"><PanelLeftOpen size={19} /></button>}
-            <div className="min-w-0 family-title-field"><p className="board-eyebrow">Arsip keluarga <span>/</span> Silsilah</p><input maxLength={FIELD_LIMITS.familyName} title={`Maksimal ${FIELD_LIMITS.familyName} karakter`} aria-describedby="family-name-limit" aria-label="Nama pohon keluarga" value={family.name || ""} onChange={(event) => { setFamily({ ...family, name: event.target.value }); }} placeholder="Nama keluarga" className="board-title" /><span id="family-name-limit" className="family-title-limit">{(family.name || "").length} / {FIELD_LIMITS.familyName} karakter</span></div>
+      <main className="workspace-main relative flex-1 w-full h-full min-w-0 overflow-hidden">
+        <h1 className="sr-only">
+          Markoum — Visualisasi Silsilah & Pembuat Pohon Keluarga Interaktif
+        </h1>
+        <header className="board-header bg-transparent">
+          <div className="flex flex-1 min-w-0 items-center gap-4">
+            {!isSidebarOpen && (
+              <div className="flex items-center gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarOpen(true)}
+                  aria-label="Buka panel samping"
+                  title="Buka panel samping"
+                  className="dock-button"
+                >
+                  <PanelLeftOpen size={19} />
+                </button>
+                <Image
+                  src={markoumLogo}
+                  alt="Logo Markoum"
+                  width={26}
+                  height={26}
+                  className="h-6.5 w-6.5 shrink-0 rounded-full object-contain"
+                  priority
+                />
+              </div>
+            )}
+            <div className="min-w-0 flex-1 family-title-field"><p className="board-eyebrow">Arsip keluarga <span>/</span> Silsilah</p><input maxLength={FIELD_LIMITS.familyName} title={`Maksimal ${FIELD_LIMITS.familyName} karakter`} aria-describedby="family-name-limit" aria-label="Nama pohon keluarga" value={family.name || ""} onChange={(event) => { setFamily({ ...family, name: event.target.value }); }} placeholder="Nama keluarga" className="board-title" /><span id="family-name-limit" className="family-title-limit">{(family.name || "").length} / {FIELD_LIMITS.familyName} karakter</span></div>
           </div>
-          <div className="board-header-meta"><p>{family.persons.length} anggota <span>·</span> {family.relationships.length} hubungan</p><p className="board-save-state" role="status" aria-live="polite">{saveStatus === "modified" ? <><Circle size={6} className="fill-blue-500 text-blue-500" /> {fileHandle || dirHandle ? "Belum disimpan ke file" : "Menyimpan…"}</> : saveStatus === "saving" ? "Menyimpan…" : saveStatus === "error" ? "Gagal menyimpan" : <><Check size={12} /> Semua perubahan tersimpan</>}</p></div>
+          <div className="board-header-meta"><p>{family.persons.length} anggota <span>·</span> {family.relationships.length} hubungan</p><p className="board-save-state" role="status" aria-live="polite">{saveStatus === "modified" ? <><Circle size={6} className="fill-[#862d33] text-[#862d33]" /> {fileHandle || dirHandle ? "Belum disimpan ke file" : "Menyimpan…"}</> : saveStatus === "saving" ? "Menyimpan…" : saveStatus === "error" ? "Gagal menyimpan" : <><Check size={12} /> Semua perubahan tersimpan</>}</p></div>
         </header>
 
         {feedback && (
           <div className="absolute top-24 right-5 z-40 w-[min(360px,calc(100%-40px))]" role={feedback.type === "error" ? "alert" : "status"} aria-live={feedback.type === "error" ? "assertive" : "polite"}>
             <div className="flex items-start gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-lg shadow-black/5">
-              <span className="mt-0.5 text-blue-600">{feedback.type === "success" ? <CheckCircle2 size={19} /> : feedback.type === "error" ? <CircleAlert size={19} /> : <Info size={19} />}</span>
+              <span className="mt-0.5 text-[#862d33]">{feedback.type === "success" ? <CheckCircle2 size={19} /> : feedback.type === "error" ? <CircleAlert size={19} /> : <Info size={19} />}</span>
               <p className="min-w-0 flex-1 text-[13px] leading-6 text-zinc-700">{feedback.message}</p>
               <button type="button" aria-label="Tutup notifikasi" className="mt-0.5 shrink-0 text-zinc-400 hover:text-zinc-900" onClick={() => setFeedback(null)}><X size={15} /></button>
             </div>
@@ -517,7 +566,7 @@ export default function Home() {
         )}
 
         {/* Canvas Display */}
-        <div className="board-surface flex-1 min-h-0 relative w-full">
+        <div className="board-surface relative w-full h-full">
           {family.persons.length === 0 ? (
             <EmptyFamilyState
               onAddPerson={() => { setSelectedPerson(null); setIsPersonModalOpen(true); }}
@@ -530,6 +579,9 @@ export default function Home() {
               family={family}
               viewMode={viewMode}
               focusPersonId={focusPersonId}
+              focusRequest={focusRequest}
+              arrangeRequest={arrangeRequest}
+              selectedDetailPersonId={selectedDetailPerson?.id}
               dirHandle={dirHandle || undefined}
               layoutMode={layoutMode}
               onLayoutModeChange={setLayoutMode}
@@ -554,11 +606,9 @@ export default function Home() {
                 setSelectedPerson(p);
                 setIsPersonModalOpen(true);
               }}
-              onSelectPerson={handleSelectPerson}
-              onFocusPerson={(id) => {
-                setFocusPersonId(id);
-                showFeedback("Fokus silsilah dialihkan.");
-              }}
+              onSelectPerson={handleOpenPersonDetails}
+              onFocusPerson={handleFocusPerson}
+              onFeedback={showFeedback}
             />
           )}
         </div>
@@ -574,7 +624,7 @@ export default function Home() {
             setIsPersonModalOpen(true);
           }}
           onDelete={handleDeletePerson}
-          onSelectPerson={handleSelectPerson}
+          onSelectPerson={handleOpenPersonDetails}
           onAddRelative={handleOpenAddRelative}
           onAddChildOfCouple={handleOpenAddChildOfCouple}
           focusPersonId={focusPersonId}
@@ -623,6 +673,14 @@ export default function Home() {
         relationshipCount={family.relationships.filter((relationship) => relationship.from === pendingDeletePersonId || relationship.to === pendingDeletePersonId).length}
         onCancel={() => setPendingDeletePersonId(null)}
         onConfirm={confirmDeletePerson}
+      />
+      <NewTreeModal
+        isOpen={isNewTreeModalOpen}
+        familyName={family.name}
+        personCount={family.persons.length}
+        hasUnsavedChanges={family.persons.length > 0 && saveStatus !== "synced"}
+        onCancel={() => setIsNewTreeModalOpen(false)}
+        onConfirm={confirmNewTree}
       />
     </div>
   );

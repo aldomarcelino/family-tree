@@ -1,6 +1,7 @@
 "use client";
 
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Select } from "@/src/components/UI/Select";
+import { CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { createCalendarDate, formatCalendarValue, getCalendarDays, parseCalendarValue, shiftCalendarMonth } from "@/src/services/calendar";
 
@@ -100,13 +101,13 @@ export function DatePicker({ value, onChange, placeholder = "Pilih tanggal", lab
 
   return (
     <div className="min-w-0 space-y-1.5">
-      <label htmlFor={id} className="block text-xs font-medium text-zinc-600">{label || "Tanggal"}{required && <span className="ml-0.5 text-blue-600">*</span>}</label>
+      <label htmlFor={id} className="block text-xs font-medium text-zinc-600">{label || "Tanggal"}{required && <span className="ml-0.5 text-[#862d33]">*</span>}</label>
       <button ref={trigger} id={id} type="button" className={`date-trigger ${error ? "date-trigger-error" : ""}`} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-calendar`} aria-describedby={error || hint ? `${id}-hint` : undefined} onClick={show} onKeyDown={(event) => { if (event.key === "ArrowDown") { event.preventDefault(); show(); } }}><span className={value ? "" : "text-zinc-400"}>{selected ? dateLabel(selected) : value || placeholder}</span><CalendarDays size={15} strokeWidth={1.6} /></button>
       <div ref={popup} id={`${id}-calendar`} popover="auto" role="dialog" aria-label={`Pilih ${label?.toLowerCase() || "tanggal"}`} className="date-popover" onToggle={() => setOpen(Boolean(popup.current?.matches(":popover-open")))} onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); close(); } }}>
         <header className="date-popup-heading"><span>{label || "Pilih tanggal"}</span><button type="button" aria-label="Tutup kalender" onClick={close}><X size={15} /></button></header>
         <div className="date-navigation">
           <button type="button" aria-label="Bulan sebelumnya" className="date-nav-button" disabled={view.getFullYear() === 1 && view.getMonth() === 0} onClick={() => navigate(shiftCalendarMonth(createCalendarDate(view.getFullYear(), view.getMonth()), -1))}><ChevronLeft size={16} /></button>
-          <div className="date-month"><select aria-label="Bulan kalender" value={view.getMonth()} onChange={(event) => navigate(createCalendarDate(view.getFullYear(), Number(event.target.value)))}>{months.map((month, index) => <option key={month} value={index}>{month}</option>)}</select><ChevronDown size={12} /></div>
+          <div className="date-month"><Select compact aria-label="Bulan kalender" value={view.getMonth()} onValueChange={(value) => navigate(createCalendarDate(view.getFullYear(), Number(value)))} options={months.map((month, index) => ({ value: String(index), label: month }))} /></div>
           <input aria-label="Tahun kalender" title="Ketik tahun, misalnya 1942" className="date-year" inputMode="numeric" maxLength={4} value={yearText} onChange={(event) => { const text = event.target.value.replace(/\D/g, "").slice(0, 4); setYearText(text); if (text.length === 4 && Number(text) > 0) { setView(createCalendarDate(Number(text), view.getMonth())); setFocused(formatCalendarValue(createCalendarDate(Number(text), view.getMonth()))); } }} onBlur={() => { const year = Number(yearText); if (year >= 1 && year <= 9999) navigate(createCalendarDate(year, view.getMonth())); else setYearText(String(view.getFullYear())); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); const year = Number(yearText); if (year >= 1 && year <= 9999) navigate(createCalendarDate(year, view.getMonth()), true); } }} />
           <button type="button" aria-label="Bulan berikutnya" className="date-nav-button" disabled={view.getFullYear() === 9999 && view.getMonth() === 11} onClick={() => navigate(shiftCalendarMonth(createCalendarDate(view.getFullYear(), view.getMonth()), 1))}><ChevronRight size={16} /></button>
         </div>
@@ -117,7 +118,7 @@ export function DatePicker({ value, onChange, placeholder = "Pilih tanggal", lab
         </div>
         <footer className="date-popup-footer"><button type="button" onClick={() => choose(new Date())}>Hari ini</button><button type="button" disabled={!value} onClick={() => { onChange(""); close(); }}>Kosongkan</button></footer>
       </div>
-      {(error || hint) && <p id={`${id}-hint`} className={`text-[11px] ${error ? "text-blue-600" : "text-zinc-400"}`}>{error || hint}</p>}
+      {(error || hint) && <p id={`${id}-hint`} className={`text-[11px] ${error ? "text-[#862d33]" : "text-zinc-400"}`}>{error || hint}</p>}
     </div>
   );
 }

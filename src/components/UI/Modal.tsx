@@ -17,7 +17,7 @@ interface ModalProps {
   role?: "dialog" | "alertdialog";
 }
 
-export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "max-w-2xl", eyebrow = "Kinflow · Arsip keluarga", role = "dialog" }: ModalProps) {
+export function Modal({ title, subtitle, children, isOpen, onClose, maxWidth = "max-w-2xl", eyebrow = "Markoum · Arsip silsilah", role = "dialog" }: ModalProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
