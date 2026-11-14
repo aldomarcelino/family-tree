@@ -1,6 +1,6 @@
 "use client";
 
-import { ClipboardPaste, Download, FileJson, FilePlus, FolderOpen, HardDrive, Save, ChevronRight, type LucideIcon } from "lucide-react";
+import { ClipboardPaste, Download, FileJson, FilePlus, FolderOpen, HardDrive, Save, Share2, ChevronRight, type LucideIcon } from "lucide-react";
 
 interface StoragePanelProps {
   familyName: string;
@@ -14,6 +14,7 @@ interface StoragePanelProps {
   onPasteJSON: () => void;
   onLoadDirectory: () => void;
   onSaveFile: () => void;
+  onShare: () => void;
   onExportBackup: () => void;
   onNewTree: () => void;
 }
@@ -40,7 +41,7 @@ function StorageAction({ icon: Icon, title, description, onClick, featured = fal
 }
 
 export function StoragePanel({ familyName, fileName, personCount, relationshipCount, directoryName,
-  hasFileHandle, canOpenDirectory, onLoadFile, onPasteJSON, onLoadDirectory, onSaveFile, onExportBackup, onNewTree,
+  hasFileHandle, canOpenDirectory, onLoadFile, onPasteJSON, onLoadDirectory, onSaveFile, onShare, onExportBackup, onNewTree,
 }: StoragePanelProps) {
   const hasDestination = Boolean(directoryName || hasFileHandle);
 
@@ -79,8 +80,9 @@ export function StoragePanel({ familyName, fileName, personCount, relationshipCo
       </section>
 
       <section className="border-t border-zinc-200 pt-4" aria-labelledby="storage-save-title">
-        <h3 id="storage-save-title" className="mb-2 text-xs font-semibold text-zinc-800">Simpan & pindahkan</h3>
+        <h3 id="storage-save-title" className="mb-2 text-xs font-semibold text-zinc-800">Bagikan & simpan</h3>
         <div className="space-y-1">
+          <StorageAction icon={Share2} title="Bagikan silsilah" description="Kirim file atau salin JSON untuk perangkat lain." onClick={onShare} featured />
           {hasDestination && <StorageAction icon={Save} title="Simpan perubahan" description="Perbarui berkas yang terhubung." onClick={onSaveFile} />}
           <StorageAction icon={Download} title="Unduh cadangan JSON" description="Simpan data untuk dibuka kembali atau dibagikan." onClick={onExportBackup} />
         </div>

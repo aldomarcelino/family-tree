@@ -13,7 +13,7 @@ export function SaveIndicator({ status, hasExternalDestination, restored }: {
   const pending = !restored || status === "saving" || (status === "modified" && !hasExternalDestination);
   const state = pending ? "saving" : status;
   const label = !restored ? "Memuat arsip…" : pending ? "Menyimpan perubahan…" : status === "error" ? "Gagal menyimpan" : status === "modified" ? "Belum disimpan ke file" : "Semua perubahan tersimpan";
-  const detail = !restored ? "Memulihkan arsip keluarga yang tersimpan." : status === "error" ? "Penyimpanan gagal. Coba simpan kembali melalui menu File." : status === "modified" && hasExternalDestination ? "Ada perubahan baru. Simpan melalui menu File atau tekan Ctrl/Cmd + S." : pending ? "Perubahan sedang disimpan." : hasExternalDestination ? "Perubahan tersimpan di file keluarga." : "Perubahan tersimpan otomatis di browser ini. Gunakan menu File untuk menyimpan salinan.";
+  const detail = !restored ? "Memulihkan arsip keluarga yang tersimpan." : status === "error" ? "Penyimpanan gagal. Coba simpan kembali melalui menu Berkas." : status === "modified" && hasExternalDestination ? "Ada perubahan baru. Simpan melalui menu Berkas atau tekan Ctrl/Cmd + S." : pending ? "Perubahan sedang disimpan." : hasExternalDestination ? "Perubahan tersimpan di file keluarga." : "Perubahan tersimpan otomatis di browser ini. Gunakan menu Berkas untuk menyimpan salinan.";
   const Icon = pending ? LoaderCircle : status === "error" ? CircleAlert : status === "modified" ? HardDrive : Check;
 
   return (

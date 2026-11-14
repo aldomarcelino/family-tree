@@ -45,6 +45,7 @@ interface AppSidebarProps {
   onLoadFile: () => void;
   onPasteJSON: () => void;
   onSaveFile: () => void;
+  onShare: () => void;
   onLoadDirectory: () => void;
   onNewTree: () => void;
   onExportBackup: () => void;
@@ -72,6 +73,7 @@ export function AppSidebar({
   onLoadFile,
   onPasteJSON,
   onSaveFile,
+  onShare,
   onLoadDirectory,
   onNewTree,
   onExportBackup,
@@ -281,6 +283,7 @@ export function AppSidebar({
             onPasteJSON={onPasteJSON}
             onLoadDirectory={onLoadDirectory}
             onSaveFile={onSaveFile}
+            onShare={onShare}
             onExportBackup={onExportBackup}
             onNewTree={onNewTree}
           />

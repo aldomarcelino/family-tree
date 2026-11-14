@@ -4,7 +4,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import Image from "next/image";
 import markoumLogo from "@/public/assets/logos/logo.webp";
-import { PanelLeftOpen, CheckCircle2, CircleAlert, Info, X } from "lucide-react";
+import { PanelLeftOpen, CheckCircle2, CircleAlert, Info, Share2, X } from "lucide-react";
+import { ShareFamilyModal } from "@/src/components/Modals/ShareFamilyModal";
+import { FamilySearchBar } from "@/src/components/UI/FamilySearchBar";
+import { createFamilyTransfer, type FamilyTransfer } from "@/src/services/familyTransfer";
 import { SaveIndicator } from "@/src/components/UI/SaveIndicator";
 import { EmptyFamilyState } from "@/src/components/FamilyCanvas/EmptyFamilyState";
 import { FamilyTree } from "@/src/components/FamilyCanvas/FamilyTree";
@@ -96,6 +99,7 @@ export default function Home() {
   const [relModalInitialPersonId, setRelModalInitialPersonId] = useState<string | undefined>(undefined);
   const [relModalInitialSecondPersonId, setRelModalInitialSecondPersonId] = useState<string | undefined>(undefined);
   const [relModalInitialRole, setRelModalInitialRole] = useState<"parent" | "spouse" | "child" | "sibling" | undefined>(undefined);
+  const [shareTransfer, setShareTransfer] = useState<FamilyTransfer | null>(null);
   const [isImportJSONOpen, setIsImportJSONOpen] = useState(false);
   const [isNewTreeModalOpen, setIsNewTreeModalOpen] = useState(false);
 
@@ -347,6 +351,24 @@ export default function Home() {
     showFeedback("Memulai silsilah keluarga baru yang bersih.", "info");
   };
 
+  const handleOpenShare = () => {
+    try {
+      setShareTransfer(createFamilyTransfer(useFamilyStore.getState().family));
+    } catch {
+      showFeedback("Data silsilah belum bisa dibagikan. Periksa nama keluarga dan informasi anggota.", "error");
+    }
+  };
+
+  const handleSearchSelect = (person: Person) => {
+    const ancestors = new Set(getAncestors(person.id, family, family.persons.length).map(({ person }) => person.id));
+    setCollapsedPersonIds((current) => new Set([...current].filter((id) => !ancestors.has(id))));
+    setViewMode("full");
+    setFocusPersonId(person.id);
+    setFocusRequest((request) => request + 1);
+    setSelectedDetailPerson(person);
+    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+  };
+
   const handleExportBackup = () => {
     try {
       exportFamily(family);
@@ -549,6 +571,7 @@ export default function Home() {
         onLoadFile={handleLoadFile}
         onPasteJSON={() => setIsImportJSONOpen(true)}
         onSaveFile={handleSaveFile}
+        onShare={handleOpenShare}
         onLoadDirectory={handleLoadDirectory}
         onNewTree={handleNewTree}
         onExportBackup={handleExportBackup}
@@ -560,7 +583,7 @@ export default function Home() {
           Markoum — Visualisasi Silsilah & Pembuat Pohon Keluarga Interaktif
         </h1>
         <header className="board-header bg-transparent">
-          <div className="flex flex-1 min-w-0 items-center gap-4">
+          <div className="board-header-title flex min-w-0 items-center gap-4">
             {!isSidebarOpen && (
               <div className="flex items-center gap-2.5 shrink-0">
                 <button
@@ -583,6 +606,12 @@ export default function Home() {
               </div>
             )}
             <div className="min-w-0 flex-1 family-title-field"><p className="board-eyebrow">Arsip keluarga <span>/</span> Silsilah</p><input maxLength={FIELD_LIMITS.familyName} title={`Maksimal ${FIELD_LIMITS.familyName} karakter`} aria-describedby="family-name-limit" aria-label="Nama pohon keluarga" value={family.name || ""} onChange={(event) => { setFamily({ ...family, name: event.target.value }); }} placeholder="Nama keluarga" className="board-title" /><span id="family-name-limit" className="family-title-limit">{(family.name || "").length} / {FIELD_LIMITS.familyName} karakter</span></div>
+          </div>
+          <div className="board-header-actions">
+            <FamilySearchBar family={family} onSelectPerson={handleSearchSelect} />
+            <button type="button" className="board-share-button" aria-label="Bagikan silsilah" onClick={handleOpenShare}>
+              <Share2 size={16} /><span>Bagikan</span>
+            </button>
           </div>
           <div className="board-header-meta"><p>{family.persons.length} anggota <span>·</span> {family.relationships.length} hubungan</p><SaveIndicator status={saveStatus} hasExternalDestination={Boolean(fileHandle || dirHandle)} restored={hasRestored} /></div>
         </header>
@@ -609,7 +638,6 @@ export default function Home() {
             />
           ) : (
             <FamilyTree
-              showSearch={!isSidebarOpen}
               family={family}
               viewMode={viewMode}
               focusPersonId={focusPersonId}
@@ -717,6 +745,7 @@ export default function Home() {
         onCancel={() => setPendingDeletePersonId(null)}
         onConfirm={confirmDeletePerson}
       />
+      {shareTransfer && <ShareFamilyModal transfer={shareTransfer} onClose={() => setShareTransfer(null)} />}
       {isImportJSONOpen && <ImportJSONModal
         currentFamilyName={family.name}
         hasCurrentData={family.persons.length > 0}

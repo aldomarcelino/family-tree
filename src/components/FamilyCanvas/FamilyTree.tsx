@@ -20,7 +20,6 @@ import { MarriageEdge } from "@/src/components/FamilyCanvas/MarriageEdge";
 import { RelationGuide } from "@/src/components/UI/RelationGuide";
 import { TuturModeSelector } from "@/src/components/UI/TuturModeSelector";
 import { CanvasToolbar } from "@/src/components/UI/CanvasToolbar";
-import { FamilySearchBar } from "@/src/components/UI/FamilySearchBar";
 import { Camera, Loader2 } from "lucide-react";
 import { exportCurrentBoardAsImage } from "@/src/services/exportImage";
 import { getFocusWaveSchedule } from "@/src/services/focusWave";
@@ -45,7 +44,6 @@ const edgeTypes: EdgeTypes = {
 const emptyCollapsedPersons = new Set<string>();
 
 interface FamilyTreeProps {
-  showSearch?: boolean;
   family: FamilyData;
   onEditPerson: (person: Person) => void;
   onDeletePerson?: (id: string) => void;
@@ -75,7 +73,6 @@ interface FamilyTreeProps {
 
 function FamilyTreeInner({
   family,
-  showSearch = false,
   onEditPerson,
   onDeletePerson,
   onSelectPerson,
@@ -386,11 +383,6 @@ function FamilyTreeInner({
           position="bottom-left"
           zoomable
         />
-      )}
-
-      {/* Floating Canvas Search */}
-      {showSearch && (
-        <FamilySearchBar family={family} onSelectPerson={onSelectPerson} />
       )}
 
       {/* Floating Canvas Toolbar */}

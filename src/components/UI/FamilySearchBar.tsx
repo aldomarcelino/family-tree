@@ -1,123 +1,130 @@
+"use client";
+
 import { FIELD_LIMITS } from "@/src/schema/fieldLimits";
-import React, { useState, useRef, useEffect } from "react";
-import { Search, X, Mars, Venus, Eye } from "lucide-react";
+import { useState, useRef, useEffect, useId, useMemo, type KeyboardEvent } from "react";
+import { ArrowUpRight, Search, X } from "lucide-react";
+import { getPersonInitials } from "@/src/services/personInitials";
+import { createPersonSearchIndex, searchPeople } from "@/src/services/personSearch";
 import type { FamilyData, Person } from "@/src/types/family";
 
 interface FamilySearchBarProps {
   family: FamilyData;
-  onSelectPerson?: (person: Person) => void;
-  className?: string;
+  onSelectPerson: (person: Person) => void;
 }
 
-export function FamilySearchBar({
-  family,
-  onSelectPerson,
-  className = "absolute top-20 sm:top-24 left-4 sm:left-7 z-20 w-[min(260px,calc(100vw-32px))] select-none font-sans",
-}: FamilySearchBarProps) {
+export function FamilySearchBar({ family, onSelectPerson }: FamilySearchBarProps) {
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const results = query.trim()
-    ? family.persons.filter(
-        (p) =>
-          p.fullName.toLowerCase().includes(query.toLowerCase()) ||
-          (p.nickname && p.nickname.toLowerCase().includes(query.toLowerCase())) ||
-          p.tags.some((t) => t.toLowerCase().includes(query.toLowerCase())),
-      )
-    : [];
+  const inputRef = useRef<HTMLInputElement>(null);
+  const optionRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const id = useId();
+  const index = useMemo(() => createPersonSearchIndex(family.persons), [family.persons]);
+  const { persons: results, total } = useMemo(() => searchPeople(index, query), [index, query]);
+  const active = Math.min(activeIndex, results.length - 1);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+    const shortcut = (event: globalThis.KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.isContentEditable || target.closest("input, textarea, select, dialog")) return;
+      if (event.key === "/" || ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k")) {
+        event.preventDefault();
+        inputRef.current?.focus();
       }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    };
+    document.addEventListener("keydown", shortcut);
+    return () => document.removeEventListener("keydown", shortcut);
   }, []);
 
-  const handleSelect = (person: Person) => {
-    onSelectPerson?.(person);
+  useEffect(() => {
+    if (!isOpen) return;
+    const outside = (event: PointerEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) optionRefs.current[active]?.scrollIntoView({ block: "nearest" });
+  }, [active, isOpen, query]);
+
+  const select = (person: Person) => {
     setQuery("");
     setIsOpen(false);
+    inputRef.current?.blur();
+    onSelectPerson(person);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.nativeEvent.isComposing) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setIsOpen(true);
+      if (results.length) setActiveIndex(!isOpen ? 0 : (active + (event.key === "ArrowDown" ? 1 : -1) + results.length) % results.length);
+    } else if (event.key === "Enter" && isOpen && results[active]) {
+      event.preventDefault();
+      select(results[active]);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsOpen(false);
+    } else if (event.key === "Tab") {
+      setIsOpen(false);
+    }
   };
 
   return (
-    <div className={className} ref={containerRef}>
-      <div className="relative">
-        <div className="flex items-center gap-2 bg-white/95 border border-zinc-200/90 rounded-lg px-3.5 py-2 shadow-sm backdrop-blur-md focus-within:ring-2 focus-within:ring-[#862d33]/20 focus-within:border-[#862d33] transition">
-          <Search size={15} className="text-zinc-400 shrink-0" />
-          <input
-            maxLength={FIELD_LIMITS.search}
-            type="text"
-            placeholder="Cari nama, panggilan, atau tag..."
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setIsOpen(true);
-            }}
-            onFocus={() => setIsOpen(true)}
-            className="w-full text-xs bg-transparent border-none outline-none text-zinc-800 placeholder-zinc-400 font-medium"
-          />
-          {query && (
-            <button
-              onClick={() => {
-                setQuery("");
-                setIsOpen(false);
-              }}
-              type="button"
-              className="text-zinc-400 hover:text-zinc-700 transition cursor-pointer p-0.5 rounded-full hover:bg-zinc-100"
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
-
-        {isOpen && results.length > 0 && (
-          <ul className="absolute left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-white border border-zinc-200 rounded-lg shadow-xl py-1.5 z-30 divide-y divide-zinc-100 backdrop-blur-md">
-            {results.map((p) => (
-              <li key={p.id} className="flex items-center">
-                <button
-                  onClick={() => handleSelect(p)}
-                  aria-label={`Lihat detail ${p.fullName}`}
-                  title="Lihat detail anggota"
-                  type="button"
-                  className="min-w-0 flex-1 text-left px-3.5 py-2.5 hover:bg-zinc-50 transition cursor-pointer text-xs flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                        p.gender === "female"
-                          ? "bg-[#fbf4f5] text-[#862d33]"
-                          : "bg-zinc-100 text-zinc-900"
-                      }`}
-                    >
-                      {p.gender === "female" ? <Venus size={13} /> : <Mars size={13} />}
-                    </div>
-                    <div className="min-w-0 truncate">
-                      <p className="font-bold text-zinc-900 truncate">
-                        {p.fullName}{" "}
-                        {p.nickname && (
-                          <span className="font-normal text-zinc-500 text-[11px]">
-                            ({p.nickname})
-                          </span>
-                        )}
-                      </p>
-                      {p.tags.length > 0 && (
-                        <p className="text-[10px] text-zinc-400 font-medium truncate mt-0.5">
-                          #{p.tags.join(" #")}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <Eye size={14} className="shrink-0 text-zinc-400" aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+    <div className="family-search" ref={containerRef} onBlur={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
+    }}>
+      <div className="family-search-field">
+        <Search size={17} className="shrink-0 text-zinc-400" aria-hidden="true" />
+        <input ref={inputRef} type="text" role="combobox" aria-label="Cari anggota keluarga"
+          aria-autocomplete="list" aria-expanded={isOpen} aria-controls={isOpen ? `${id}-list` : undefined}
+          aria-activedescendant={isOpen && active >= 0 ? `${id}-option-${active}` : undefined}
+          autoComplete="off" spellCheck={false} enterKeyHint="search" maxLength={FIELD_LIMITS.search}
+          placeholder="Cari anggota keluarga…" value={query}
+          onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); setIsOpen(true); }}
+          onFocus={() => { setIsOpen(true); setActiveIndex(0); }} onKeyDown={handleKeyDown} />
+        {query ? <button type="button" aria-label="Hapus pencarian" className="family-search-clear"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => { setQuery(""); setActiveIndex(0); setIsOpen(true); inputRef.current?.focus(); }}><X size={15} /></button>
+          : <kbd className="family-search-shortcut" aria-hidden="true">/</kbd>}
       </div>
+
+      {isOpen && <div className="family-search-popover">
+        <div className="family-search-caption" role="status" aria-live="polite">
+          {query.trim() ? `${total} anggota ditemukan` : "Pilih anggota atau cari nama, panggilan, dan tag"}
+        </div>
+        <ul id={`${id}-list`} role="listbox" aria-label="Hasil pencarian anggota" className="family-search-results">
+          {results.map((person, resultIndex) => (
+            <li key={person.id} role="presentation">
+              <button ref={(element) => { optionRefs.current[resultIndex] = element; }}
+                id={`${id}-option-${resultIndex}`} type="button" role="option" aria-selected={active === resultIndex}
+                tabIndex={-1} className={`family-search-result${active === resultIndex ? " is-active" : ""}`}
+                onMouseDown={(event) => event.preventDefault()} onClick={() => select(person)}>
+                <span className={`family-search-avatar${person.gender === "female" ? " is-female" : ""}`} aria-hidden="true">{getPersonInitials(person.fullName)}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium text-zinc-900">{person.fullName}</span>
+                  <span className="mt-1 block truncate text-[11px] text-zinc-500">
+                    {[person.nickname, person.birthDate ? `Lahir ${person.birthDate.slice(0, 4)}` : null,
+                      person.tags.length ? person.tags.map((tag) => `#${tag}`).join(" ") : null].filter(Boolean).join(" · ") || (person.gender === "female" ? "Perempuan" : "Laki-laki")}
+                  </span>
+                </span>
+                <ArrowUpRight size={15} className="shrink-0 text-zinc-400" aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+        {!results.length && <div className="family-search-empty">
+          <Search size={22} className="mx-auto mb-2 text-zinc-300" aria-hidden="true" />
+          <p className="text-[13px] font-medium text-zinc-700">{family.persons.length ? "Tidak ada anggota yang cocok" : "Belum ada anggota keluarga"}</p>
+          <p className="mt-1 text-xs leading-5 text-zinc-500">{family.persons.length ? "Coba nama lain, panggilan, atau tag keluarga." : "Tambahkan anggota untuk mulai mencari."}</p>
+        </div>}
+        {results.length > 0 && <p className="family-search-footer">{total > results.length ? `Menampilkan ${results.length} dari ${total}. Perjelas pencarian.` : "Pilih anggota untuk melihatnya di pohon."}</p>}
+      </div>}
     </div>
   );
 }
