@@ -45,6 +45,43 @@ test('Relations are recomputed for a new focus and remain finite with imported c
  assert.ok(getKinshipLabels('focus',cyclic) instanceof Map);
 });
 
+test('Siblings distinguish Adik, Kakak, Abang when birth dates are known and fall back to Saudara/Saudari', () => {
+ const ageFamily = { schemaVersion: 1, name: 'Age fixture', persons: [
+   { id: 'me', fullName: 'Me', gender: 'male', birthDate: '2000-01-01', tags: [] },
+   { id: 'older-brother', fullName: 'Older Brother', gender: 'male', birthDate: '1995-05-12', tags: [] },
+   { id: 'older-sister', fullName: 'Older Sister', gender: 'female', birthDate: '1998-08-20', tags: [] },
+   { id: 'younger-sister', fullName: 'Younger Sister', gender: 'female', birthDate: '2005-03-15', tags: [] },
+   { id: 'younger-brother', fullName: 'Younger Brother', gender: 'male', birthDate: '2008-11-01', tags: [] },
+   { id: 'unknown-brother', fullName: 'Unknown Brother', gender: 'male', tags: [] },
+   { id: 'unknown-sister', fullName: 'Unknown Sister', gender: 'female', tags: [] },
+   { id: 'father', fullName: 'Father', gender: 'male', birthDate: '1970-01-01', tags: [] },
+ ], relationships: [], familyUnits: [], media: [], events: [], updatedAt: '' };
+ for (const id of ['me','older-brother','older-sister','younger-sister','younger-brother','unknown-brother','unknown-sister']) {
+   ageFamily.relationships.push({ id: `p:${id}`, type: 'parent', from: 'father', to: id, metadata: {} });
+ }
+ const labels = getKinshipLabels('me', ageFamily);
+ assert.equal(labels.get('older-brother'), 'Abang');
+ assert.equal(labels.get('older-sister'), 'Kakak');
+ assert.equal(labels.get('younger-sister'), 'Adik');
+ assert.equal(labels.get('younger-brother'), 'Adik');
+ assert.equal(labels.get('unknown-brother'), 'Saudara');
+ assert.equal(labels.get('unknown-sister'), 'Saudari');
+
+ // Check from younger sibling perspective
+ const fromYoungest = getKinshipLabels('younger-brother', ageFamily);
+ assert.equal(fromYoungest.get('me'), 'Abang');
+ assert.equal(fromYoungest.get('older-sister'), 'Kakak');
+ assert.equal(fromYoungest.get('younger-sister'), 'Kakak');
+ assert.equal(fromYoungest.get('older-brother'), 'Abang');
+
+ // Check from oldest sibling perspective
+ const fromOldest = getKinshipLabels('older-brother', ageFamily);
+ assert.equal(fromOldest.get('older-sister'), 'Adik');
+ assert.equal(fromOldest.get('me'), 'Adik');
+ assert.equal(fromOldest.get('younger-sister'), 'Adik');
+ assert.equal(fromOldest.get('younger-brother'), 'Adik');
+});
+
 const nodes = ['a','b','child','grandchild','unrelated'].map(id=>({id,type:'person',position:{x:0,y:0},data:{}}));
 nodes.push({id:'junction:a:b',type:'junction',position:{x:0,y:0},data:{}});
 const edges=[{id:'couple',source:'a',target:'b',type:'marriage'},{id:'child',source:'junction:a:b',target:'child',type:'smoothstep'},{id:'grandchild',source:'child',target:'grandchild',type:'smoothstep'}];

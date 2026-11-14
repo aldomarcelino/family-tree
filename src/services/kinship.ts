@@ -1,13 +1,60 @@
-import type { FamilyData, PersonGender } from "@/src/types/family";
+import type { FamilyData, Person, PersonGender } from "@/src/types/family";
 
 interface Kinship { label: string; up: number; down: number; score: number }
 const cache = new WeakMap<FamilyData, Map<string, Map<string, string>>>();
-const femaleOrMale = (gender: PersonGender, male: string, female: string) => gender === "female" ? female : male;
-const spouseLabelFor = (gender?: string) => {
+export const femaleOrMale = (gender: PersonGender, male: string, female: string) => gender === "female" ? female : male;
+export const spouseLabelFor = (gender?: string) => {
   if (gender === "female") return "Istri";
   if (gender === "male") return "Suami";
   return "Pasangan";
 };
+
+function parseDateParts(dateStr: string): { year: number; month: number; day: number } | null {
+  const parts = dateStr.trim().split(/[-/]/);
+  if (parts.length === 0 || !parts[0]) return null;
+  const year = parseInt(parts[0], 10);
+  if (isNaN(year)) return null;
+  const month = parts.length > 1 ? parseInt(parts[1], 10) : 1;
+  const day = parts.length > 2 ? parseInt(parts[2], 10) : 1;
+  return { year, month: isNaN(month) ? 1 : month, day: isNaN(day) ? 1 : day };
+}
+
+export type AgeComparison = "older" | "younger" | "same" | "unknown";
+
+export function comparePersonAges(refDateStr?: string, targetDateStr?: string): AgeComparison {
+  if (!refDateStr || !targetDateStr) return "unknown";
+  const refParts = parseDateParts(refDateStr);
+  const targetParts = parseDateParts(targetDateStr);
+  if (!refParts || !targetParts) return "unknown";
+
+  if (targetParts.year !== refParts.year) {
+    return targetParts.year < refParts.year ? "older" : "younger";
+  }
+  const refHasMonth = refDateStr.includes("-") || refDateStr.includes("/");
+  const targetHasMonth = targetDateStr.includes("-") || targetDateStr.includes("/");
+  if (!refHasMonth || !targetHasMonth) {
+    return "same";
+  }
+  if (targetParts.month !== refParts.month) {
+    return targetParts.month < refParts.month ? "older" : "younger";
+  }
+  if (targetParts.day !== refParts.day) {
+    return targetParts.day < refParts.day ? "older" : "younger";
+  }
+  return "same";
+}
+
+export function siblingLabel(gender: PersonGender, ageComp: AgeComparison): string {
+  if (ageComp === "younger") return "Adik";
+  if (ageComp === "older") return femaleOrMale(gender, "Abang", "Kakak");
+  return femaleOrMale(gender, "Saudara", "Saudari");
+}
+
+export function inLawSiblingLabel(gender: PersonGender, ageComp: AgeComparison): string {
+  if (ageComp === "younger") return "Adik ipar";
+  if (ageComp === "older") return femaleOrMale(gender, "Abang ipar", "Kakak ipar");
+  return femaleOrMale(gender, "Saudara ipar", "Saudari ipar");
+}
 
 function ancestorLabel(depth: number, gender: PersonGender) {
   if (depth === 1) return femaleOrMale(gender, "Ayah", "Ibu");
@@ -18,10 +65,15 @@ function ancestorLabel(depth: number, gender: PersonGender) {
 function descendantLabel(depth: number) {
   return ["", "Anak", "Cucu", "Cicit", "Piut"][depth] ?? `Keturunan ke-${depth}`;
 }
-function bloodLabel(up: number, down: number, gender: PersonGender) {
+function bloodLabel(up: number, down: number, target: Person | PersonGender, ref?: Person) {
+  const gender = typeof target === "string" ? target : target.gender;
   if (down === 0) return ancestorLabel(up, gender);
   if (up === 0) return descendantLabel(down);
-  if (up === 1 && down === 1) return femaleOrMale(gender, "Saudara", "Saudari");
+  if (up === 1 && down === 1) {
+    const targetBirthDate = typeof target === "object" ? target.birthDate : undefined;
+    const ageComp = comparePersonAges(ref?.birthDate, targetBirthDate);
+    return siblingLabel(gender, ageComp);
+  }
   if (down === 1) {
     const base = femaleOrMale(gender, "Paman", "Tante");
     return up === 2 ? base : up === 3 ? `${base} buyut` : `${base} buyut ke-${up - 2}`;
@@ -86,7 +138,7 @@ export function getKinshipLabels(focusId: string, family: FamilyData): Map<strin
       if (id === reference) return;
       const score = up + down;
       if (result.has(id) && result.get(id)!.score <= score) return;
-      result.set(id, { up, down, score, label: bloodLabel(up, down, persons.get(id)!.gender) });
+      result.set(id, { up, down, score, label: bloodLabel(up, down, persons.get(id)!, persons.get(reference)) });
     };
     const above = ancestorDistances(reference);
     for (const person of family.persons) {
@@ -108,17 +160,20 @@ export function getKinshipLabels(focusId: string, family: FamilyData): Map<strin
     if (id === focusId || (result.has(id) && result.get(id)!.score <= score)) return;
     result.set(id, { label, score });
   };
-  const spouseName = (anchor: Kinship, gender: PersonGender) => {
+  const spouseName = (anchor: Kinship, gender: PersonGender, spousePerson?: Person) => {
     if (anchor.up === 0 && anchor.down === 0) return spouseLabelFor(gender);
     if (anchor.up === 0 && anchor.down === 1) return "Menantu";
-    if (anchor.up === 1 && anchor.down === 1) return femaleOrMale(gender, "Saudara ipar", "Saudari ipar");
+    if (anchor.up === 1 && anchor.down === 1) {
+      const ageComp = comparePersonAges(persons.get(focusId)?.birthDate, spousePerson?.birthDate);
+      return inLawSiblingLabel(gender, ageComp);
+    }
     if (anchor.down === 0) return `${ancestorLabel(anchor.up, gender)} tiri`;
     if (anchor.down === 1 && anchor.up >= 2) return bloodLabel(anchor.up, 1, gender);
     return `${spouseLabelFor(gender)} ${anchor.label.toLowerCase()}`;
   };
   for (const [anchorId, anchor] of blood) for (const spouseId of partners.get(anchorId)!) {
     const spouseGender = persons.get(spouseId)!.gender;
-    const spouseLabel = spouseName(anchor, spouseGender);
+    const spouseLabel = spouseName(anchor, spouseGender, persons.get(spouseId));
     assign(spouseId, spouseLabel, anchor.score + 1 + .1);
     for (const [id, relative] of bloodRelations(spouseId)) {
       if (id === spouseId) continue;
@@ -127,7 +182,10 @@ export function getKinshipLabels(focusId: string, family: FamilyData): Map<strin
       if (anchorId === focusId) {
         if (relative.down === 0) label = relative.up <= 2 ? `${ancestorLabel(relative.up, gender)} mertua` : `${relative.label} dari ${spouseLabel.toLowerCase()}`;
         else if (relative.up === 0) label = `${relative.label} tiri`;
-        else if (relative.up === 1 && relative.down === 1) label = femaleOrMale(gender, "Saudara ipar", "Saudari ipar");
+        else if (relative.up === 1 && relative.down === 1) {
+          const ageComp = comparePersonAges(persons.get(focusId)?.birthDate, persons.get(id)?.birthDate);
+          label = inLawSiblingLabel(gender, ageComp);
+        }
         else label = `${relative.label} dari ${spouseLabel.toLowerCase()}`;
       } else if (anchor.up === 0 && anchor.down === 1 && relative.up === 1 && relative.down === 0) label = "Besan";
       assign(id, label, anchor.score + 1 + relative.score + .1);
@@ -155,7 +213,12 @@ export function getKinshipLabels(focusId: string, family: FamilyData): Map<strin
       ...[...parents.get(current)!].map((id) => ({ id, label: ancestorLabel(1, persons.get(id)!.gender) })),
       ...[...children.get(current)!].map((id) => ({ id, label: "Anak" })),
       ...[...partners.get(current)!].map((id) => ({ id, label: spouseLabelFor(persons.get(id)?.gender) })),
-      ...[...siblings.get(current)!].map((id) => ({ id, label: femaleOrMale(persons.get(id)!.gender, "Saudara", "Saudari") })),
+      ...[...siblings.get(current)!].map((id) => {
+        const target = persons.get(id)!;
+        const currentPerson = persons.get(current);
+        const ageComp = comparePersonAges(currentPerson?.birthDate, target.birthDate);
+        return { id, label: siblingLabel(target.gender, ageComp) };
+      }),
     ];
     for (const next of neighbors) {
       if (visited.has(next.id)) continue;
@@ -164,10 +227,11 @@ export function getKinshipLabels(focusId: string, family: FamilyData): Map<strin
         const currentLabel = result.get(current)?.label;
         const auntOrUncle = currentLabel?.match(/^(Paman|Tante)(.*)$/);
         const isSpouse = next.label === "Suami" || next.label === "Istri" || next.label === "Pasangan";
+        const inLawMatch = /^(Saudar[ai]|Abang|Kakak|Adik) ipar$/.test(currentLabel ?? "");
         const spouseLabel = isSpouse && auntOrUncle ?
           `${femaleOrMale(persons.get(next.id)!.gender, "Paman", "Tante")}${auntOrUncle[2]}` :
-          isSpouse && /^Saudar[ai] ipar$/.test(currentLabel ?? "") ?
-            femaleOrMale(persons.get(next.id)!.gender, "Saudara ipar", "Saudari ipar") : undefined;
+          isSpouse && inLawMatch ?
+            inLawSiblingLabel(persons.get(next.id)!.gender, comparePersonAges(persons.get(focusId)?.birthDate, persons.get(next.id)?.birthDate)) : undefined;
         result.set(next.id, { label: spouseLabel ?? (currentLabel ? `${next.label} dari ${currentLabel.toLowerCase()}` : next.label), score: Infinity });
       }
     }

@@ -19,6 +19,7 @@ import type {
 } from "@/src/types/family";
 
 import { canBeCoParent, getRelationshipError, getSpouseGenderError, hasParentLink, type RelativeRole } from "@/src/services/relationshipEligibility";
+import { comparePersonAges, siblingLabel } from "@/src/services/kinship";
 
 interface RelationshipModalProps {
   isOpen: boolean;
@@ -335,6 +336,15 @@ export function RelationshipModal({
     ? (targetMode === "new"
         ? (resolvedNewGender === "female" ? "istri" : "suami")
         : (persons.find((person) => person.id === targetPersonId)?.gender === "female" ? "istri" : "suami"))
+    : role === "sibling"
+    ? (targetMode === "new"
+        ? siblingLabel(newGender, comparePersonAges(selectedPerson?.birthDate, newBirthDate || undefined)).toLowerCase()
+        : (persons.find((person) => person.id === targetPersonId)
+            ? siblingLabel(
+                persons.find((person) => person.id === targetPersonId)!.gender,
+                comparePersonAges(selectedPerson?.birthDate, persons.find((person) => person.id === targetPersonId)!.birthDate)
+              ).toLowerCase()
+            : "saudara"))
     : roles.find((item) => item.id === role)?.label.toLowerCase();
 
   return (
