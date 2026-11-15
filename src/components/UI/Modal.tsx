@@ -95,7 +95,7 @@ export function Modal({
       <div className={`flex ${fullHeight ? "h-full" : "max-h-[calc(100dvh-32px)] sm:max-h-[calc(100dvh-48px)]"} flex-col`}>
         <header className="modal-heading">
           <div>
-            <p className="modal-eyebrow">{eyebrow}</p>
+            {eyebrow && <p className="modal-eyebrow">{eyebrow}</p>}
             <h2 id={titleId} className="modal-title">{title}</h2>
             {subtitle && <p id={descriptionId} className="modal-description">{subtitle}</p>}
           </div>

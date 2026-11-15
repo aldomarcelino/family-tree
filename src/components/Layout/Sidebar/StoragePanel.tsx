@@ -72,7 +72,7 @@ export function StoragePanel({ familyName, fileName, personCount, relationshipCo
         <h3 id="storage-open-title" className="mb-2 text-xs font-semibold text-zinc-800">Buka silsilah</h3>
         <div className="space-y-1">
           <StorageAction icon={ClipboardPaste} title="Tempel JSON" description="Buka dari teks, tanpa memilih file." onClick={onPasteJSON} featured />
-          <StorageAction icon={FileJson} title="Pilih file JSON" description="Buka file cadangan dari perangkat." onClick={onLoadFile} />
+          <StorageAction icon={FileJson} title="Pilih file JSON / TXT" description="Buka cadangan atau file silsilah yang dibagikan." onClick={onLoadFile} />
           <StorageAction icon={FolderOpen} title="Buka folder keluarga"
             description={canOpenDirectory ? "Buka data dan foto dari folder lokal." : "Perlu browser yang mendukung akses folder."}
             onClick={onLoadDirectory} disabled={!canOpenDirectory} />

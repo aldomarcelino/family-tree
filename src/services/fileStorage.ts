@@ -42,6 +42,11 @@ const jsonPickerTypes = [
   },
 ];
 
+const importPickerTypes = [{
+  description: "Silsilah keluarga (JSON / TXT)",
+  accept: { "application/json": [".json"], "text/plain": [".txt"] },
+}];
+
 const getPickerWindow = (): FilePickerWindow | null => {
   if (typeof window === "undefined") {
     return null;
@@ -109,7 +114,7 @@ const loadViaInput = () =>
   new Promise<LoadedFamilyFile>((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "application/json,.json";
+    input.accept = "application/json,text/plain,.json,.txt";
 
     input.addEventListener("change", () => {
       const file = input.files?.item(0);
@@ -131,7 +136,7 @@ export const loadJSONFile = async (): Promise<LoadedFamilyFile> => {
   if (pickerWindow?.showOpenFilePicker) {
     const [handle] = await pickerWindow.showOpenFilePicker({
       multiple: false,
-      types: jsonPickerTypes,
+      types: importPickerTypes,
     });
 
     if (!handle) {

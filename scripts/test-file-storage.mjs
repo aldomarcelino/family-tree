@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadService } from "./load-service.mjs";
 
-const { parseFamilyJSON } = loadService("fileStorage");
+const { parseFamilyJSON, loadJSONFile } = loadService("fileStorage");
 const family = {
   schemaVersion: 1,
   name: "Keluarga dari HP",
@@ -39,4 +39,37 @@ test("Invalid members and relationships are rejected before import", () => {
 
 test("JSON copied from a file can include a byte order mark", () => {
   assert.equal(parseFamilyJSON(`\uFEFF${JSON.stringify(family)}`).name, family.name);
+});
+
+test("The native file picker accepts shared TXT files and imports their JSON contents", async () => {
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  const previousReader = Object.getOwnPropertyDescriptor(globalThis, "FileReader");
+  let pickerOptions;
+  const file = new File([JSON.stringify(family)], "keluarga-dari-hp.txt", { type: "text/plain" });
+  const handle = { name: file.name, getFile: async () => file };
+  class Reader {
+    handlers = {};
+    result = null;
+    addEventListener(type, callback) { this.handlers[type] = callback; }
+    readAsText(file) {
+      file.text().then((text) => { this.result = text; this.handlers.load(); });
+    }
+  }
+  try {
+    Object.defineProperty(globalThis, "window", { configurable: true, value: {
+      showOpenFilePicker: async (options) => { pickerOptions = options; return [handle]; },
+    } });
+    Object.defineProperty(globalThis, "FileReader", { configurable: true, value: Reader });
+    const result = await loadJSONFile();
+    assert.deepEqual(pickerOptions.types[0].accept["text/plain"], [".txt"]);
+    assert.deepEqual(pickerOptions.types[0].accept["application/json"], [".json"]);
+    assert.equal(result.family.name, family.name);
+    assert.equal(result.family.persons.length, 2);
+    assert.equal(result.fileName, file.name);
+  } finally {
+    if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+    else delete globalThis.window;
+    if (previousReader) Object.defineProperty(globalThis, "FileReader", previousReader);
+    else delete globalThis.FileReader;
+  }
 });

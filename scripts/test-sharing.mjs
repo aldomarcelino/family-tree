@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadService } from "./load-service.mjs";
 
-const { createFamilyTransfer, createTransferFile, canShareTransfer, shareTransfer } = loadService("familyTransfer");
+const { createFamilyTransfer, createTransferFile, createShareFile, createWhatsAppShareURL, canShareTransfer, getShareFailureMessage, shareTransfer } = loadService("familyTransfer");
 const { parseFamilyJSON } = loadService("fileStorage");
 const fixture = () => ({
   schemaVersion: 1, name: "Keluarga Siregar", updatedAt: "2026-01-01",
@@ -28,6 +28,42 @@ test("File, clipboard, and download share one importable snapshot without changi
 test("Portable filenames normalize accents, path punctuation, and non-Latin fallback", () => {
   assert.equal(createFamilyTransfer({ ...fixture(), name: " Keluarga Éka / Putri " }).fileName, "keluarga-eka-putri.json");
   assert.equal(createFamilyTransfer({ ...fixture(), name: "家族" }).fileName, "silsilah-keluarga.json");
+});
+
+test("WhatsApp prepares importable JSON and uses copy/paste for larger data without truncating it", () => {
+  const transfer = createFamilyTransfer(fixture());
+  const url = new URL(createWhatsAppShareURL(transfer));
+  assert.equal(url.origin, "https://wa.me");
+  assert.deepEqual(parseFamilyJSON(url.searchParams.get("text")), parseFamilyJSON(transfer.contents));
+  const large = createFamilyTransfer({ ...fixture(), persons: Array.from({ length: 100 }, (_, i) => ({
+    id: String(i), fullName: `Anggota keluarga ${i}`, gender: "male", tags: [],
+  })), relationships: [] });
+  const original = large.contents;
+  assert.equal(createWhatsAppShareURL(large), null);
+  assert.equal(large.contents, original);
+  assert.equal(parseFamilyJSON(large.contents).persons.length, 100);
+});
+
+test("Native sharing uses an allowed plain-text file containing unchanged, importable JSON", async () => {
+  const transfer = createFamilyTransfer(fixture());
+  const shared = createShareFile(transfer);
+  assert.equal(shared.name, "keluarga-siregar.txt");
+  assert.equal(shared.type, "text/plain");
+  assert.equal(await shared.text(), transfer.contents);
+  assert.equal(parseFamilyJSON(await shared.text()).name, transfer.name);
+  assert.equal(createTransferFile(transfer).name, "keluarga-siregar.json", "JSON downloads keep their original format");
+  let payload;
+  await shareTransfer(shared, { share: async (data) => { payload = data; } });
+  assert.equal(payload.files[0].type, "text/plain");
+  assert.equal(payload.files[0].name.endsWith(".txt"), true);
+});
+
+test("Permission, format and unavailable native-share errors provide specific fallback guidance", () => {
+  assert.match(getShareFailureMessage({ name: "NotAllowedError" }), /tidak mengizinkan/);
+  assert.match(getShareFailureMessage({ name: "SecurityError" }), /tidak mengizinkan/);
+  assert.match(getShareFailureMessage({ name: "TypeError" }), /tidak mendukung/);
+  assert.match(getShareFailureMessage({ name: "InvalidStateError" }), /masih terbuka/);
+  assert.match(getShareFailureMessage(undefined), /unduh file atau salin JSON/);
 });
 
 test("Photos are identified as external references and invalid data cannot be shared", () => {
@@ -57,5 +93,6 @@ test("Share opens synchronously from the click, uses a JSON file, and treats can
   assert.equal(await pending, "shared");
   const aborted = Object.assign(new Error("dismissed"), { name: "AbortError" });
   assert.equal(await shareTransfer(file, { share: async () => { throw aborted; } }), "cancelled");
+  assert.equal(await shareTransfer(file, { share: async () => { throw { name: "AbortError" }; } }), "cancelled");
   await assert.rejects(shareTransfer(file, { share: async () => { throw new Error("permission denied"); } }), /permission denied/);
 });

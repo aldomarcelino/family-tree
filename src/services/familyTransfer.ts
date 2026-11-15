@@ -29,6 +29,35 @@ export function createTransferFile(transfer: FamilyTransfer): File {
   return new File([transfer.contents], transfer.fileName, { type: "application/json" });
 }
 
+/** Native share supports text files more widely than .json (including Chromium). */
+export function createShareFile(transfer: FamilyTransfer): File {
+  return new File([transfer.contents], transfer.fileName.replace(/\.json$/i, ".txt"), { type: "text/plain" });
+}
+
+/** Keep deep links short; larger snapshots use copy/paste rather than a huge URL. */
+export function createWhatsAppShareURL(transfer: FamilyTransfer): string | null {
+  const compactJSON = JSON.stringify(JSON.parse(transfer.contents));
+  const url = `https://wa.me/?text=${encodeURIComponent(compactJSON)}`;
+  return url.length <= 6000 ? url : null;
+}
+
+const errorName = (error: unknown): string =>
+  typeof error === "object" && error !== null && "name" in error && typeof error.name === "string" ? error.name : "";
+
+export function getShareFailureMessage(error: unknown): string {
+  switch (errorName(error)) {
+    case "NotAllowedError":
+    case "SecurityError":
+      return "Browser tidak mengizinkan menu berbagi di halaman ini. Unduh file atau salin JSON untuk mengirimkannya.";
+    case "InvalidStateError":
+      return "Menu berbagi sedang tidak tersedia atau masih terbuka. Anda tetap bisa mengunduh file atau menyalin JSON.";
+    case "TypeError":
+      return "Browser tidak mendukung berbagi file ini. Gunakan unduh file atau salin JSON.";
+    default:
+      return "Menu berbagi belum berhasil dibuka. Lanjutkan dengan unduh file atau salin JSON.";
+  }
+}
+
 export function canShareTransfer(file: File, target: Pick<Navigator, "share" | "canShare"> = navigator): boolean {
   try {
     return typeof target.share === "function" && typeof target.canShare === "function" && target.canShare({ files: [file] });
@@ -43,7 +72,7 @@ export async function shareTransfer(file: File, target: Pick<Navigator, "share">
     await target.share({ files: [file], title: file.name });
     return "shared";
   } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") return "cancelled";
+    if (errorName(error) === "AbortError") return "cancelled";
     throw error;
   }
 }
